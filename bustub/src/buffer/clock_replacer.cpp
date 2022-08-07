@@ -25,28 +25,24 @@ ClockReplacer::ClockReplacer(size_t num_pages) {
 ClockReplacer::~ClockReplacer() = default;
 
 bool ClockReplacer::Victim(frame_id_t *frame_id) { 
-    if(Size()==0) return false;
+    //@先执行Size()否则Victim会一直占用锁而造成阻塞
+    size_t len = Size();
     std::scoped_lock lock{mutex};
-    size_t now = hand;
-    do{
-        printf("++++++++ now1 = %lu  ++++++++\n", now);
-        if(now==replacer.size()) now = 0;
-        if(!replacer[now].contained) {
-            now++;
-            continue;
+    while(len>0){
+        //printf("========== hand = %lu ==========\n", hand);
+        if(replacer[hand].contained) {
+            if(replacer[hand].ref)
+                replacer[hand].ref = 0;
+            else {
+                //@按照算法这里不能将hand++
+                replacer[hand].contained = 0;
+                *frame_id = hand;
+                //printf("\n");
+                return true;
+            }
         }
-        printf("++++++++ now2 = %lu  ++++++++\n", now);
-        if(replacer[now].ref){
-            replacer[now].ref = 0;
-            now++;
-        }
-        else {
-            replacer[now].contained = 0;
-            *frame_id = now, hand = now+1;
-            printf("++++++++ *frame_id = %d  ++++++++\n", (*frame_id));
-            return true;
-        }
-    }while(now!=hand);
+        hand = (hand+1)%replacer.size();
+    }
     return false; 
 }
 
@@ -57,11 +53,13 @@ void ClockReplacer::Pin(frame_id_t frame_id) {
 
 void ClockReplacer::Unpin(frame_id_t frame_id) {
     std::scoped_lock lock{mutex};
-    if(!replacer[frame_id].contained){
-        replacer[frame_id].contained = 1;
-        replacer[frame_id].ref = 1;
-        printf("######### frame_id = %d  #########\n", frame_id);   
-    }
+    /*
+    @不能加上if(!replacer[frame_id].contained)判断
+    因为可能会Unpin一个frame多次，而其标志位可能在Vitim中就被修改了
+    */
+    replacer[frame_id].contained = 1;
+    replacer[frame_id].ref = 1;
+    //printf("######### frame_id = %d  #########\n", frame_id);   
 }
 
 size_t ClockReplacer::Size() { 
@@ -69,6 +67,7 @@ size_t ClockReplacer::Size() {
     size_t tot = 0;
     for(size_t i = 0; i < replacer.size(); i++)
         if(replacer[i].contained) tot++;
+    //printf("######### tot = %lu  #########\n", tot);
     return tot;
 }
 
