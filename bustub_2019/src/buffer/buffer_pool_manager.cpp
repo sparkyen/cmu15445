@@ -164,7 +164,7 @@ bool BufferPoolManager::DeletePageImpl(page_id_t page_id) {
   page_table_.erase(page_id);
   
   //reset its metadata
-  //要注意下面两个if执行的先后顺序，否则刷新无效
+  //要注意下面if和下段代码执行的先后顺序，否则刷新无效
   if(page->is_dirty_){
     //选择在不需要其并执行DeletePages时刷新到磁盘
     disk_manager_->WritePage(page->page_id_, page->data_);
