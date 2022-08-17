@@ -3,21 +3,14 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/bustub_2020/**"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c11",
             "cppStandard": "c++17",
             "intelliSenseMode": "gcc-x64",
-            "compileCommands": "${workspaceFolder}/bustub/build/compile_commands.json",
-            "compilerArgs": [],
-            "browse": {
-                "path": [
-                    "${workspaceFolder}/**"
-                ],
-                "limitSymbolsToIncludedHeaders": true
-            }
+            "compileCommands": "${workspaceFolder}/bustub_2020/build/compile_commands.json"
         }
     ],
     "version": 4

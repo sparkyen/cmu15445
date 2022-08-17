@@ -25,7 +25,14 @@ namespace bustub {
  * max page size
  */
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, int max_size) {}
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, int max_size) {
+  //需要使用get/set方法，否则使用private对象直接error: page_id_’ is private within this context
+  SetPageId(page_id);
+  SetPageId(parent_id);
+  SetMaxSize(max_size);
+  SetPageType(IndexPageType::INTERNAL_PAGE);
+  SetSize(0);
+}
 /*
  * Helper method to get/set the key associated with input "index"(a.k.a
  * array offset)
@@ -33,29 +40,41 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id
 INDEX_TEMPLATE_ARGUMENTS
 KeyType B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const {
   // replace with your own code
-  KeyType key{};
-  return key;
+  assert(index>=0&&index<GetSize());
+  return array[index].first;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {}
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
+  assert(index>=0&&index<GetSize());
+  array[index].first =  key;
+}
 
 /*
  * Helper method to find and return array index(or offset), so that its value
  * equals to input "value"
  */
 INDEX_TEMPLATE_ARGUMENTS
-int B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueIndex(const ValueType &value) const { return 0; }
+int B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueIndex(const ValueType &value) const { 
+  for(int i = 0; i < GetSize(); i++){
+    if(array[i].second==value) return i;
+  }
+  return -1; 
+}
 
 /*
  * Helper method to get the value associated with input "index"(a.k.a array
  * offset)
  */
 INDEX_TEMPLATE_ARGUMENTS
-ValueType B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const { return 0; }
+ValueType B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const { 
+  assert(index>=0&&index<GetSize());
+  return array[index].second;
+}
 
 /*****************************************************************************
  * LOOKUP
+ * ref: https://github.com/nefu-ljw/database-cmu15445-fall2020/blob/main/src/storage/page/b_plus_tree_internal_page.cpp
  *****************************************************************************/
 /*
  * Find and return the child pointer(page_id) which points to the child page
@@ -64,21 +83,44 @@ ValueType B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const { return 0; }
  */
 INDEX_TEMPLATE_ARGUMENTS
 ValueType B_PLUS_TREE_INTERNAL_PAGE_TYPE::Lookup(const KeyType &key, const KeyComparator &comparator) const {
-  return INVALID_PAGE_ID;
+  //从第二个位置开始才会有值出现
+  int now_size = GetSize();
+  assert(now_size>1);
+  /*
+    * Lookup含义为：查找now_key应该在哪个value指向的子树中
+    * 若找到的位置为i, 则有key(i) <= now_key < key(i+1)
+    * 则只需寻找<= now_key的数中最大的一个即可
+    * 例如：1 3 9 17 29 31 40 中，给定now_key = 22
+  */
+  int l = 0, r = now_size-1;
+  while(l<r){
+    int mid = (l+r+1)/2;
+    if(comparator(array[mid].first, key)<=0) l = mid;
+    else r = mid-1;
+  }
+  return array[l].second;
 }
 
 /*****************************************************************************
  * INSERTION
+ * ref: https://github.com/yixuaz/CMU-15445/blob/master/project2A/b_plus_tree.cpp
  *****************************************************************************/
 /*
- * Populate new root page with old_value + new_key & new_value
+ * Populate(填充) new root page with old_value + new_key & new_value
  * When the insertion cause overflow from leaf page all the way upto the root
  * page, you should create a new root page and populate its elements.
  * NOTE: This method is only called within InsertIntoParent()(b_plus_tree.cpp)
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::PopulateNewRoot(const ValueType &old_value, const KeyType &new_key,
-                                                     const ValueType &new_value) {}
+                                                     const ValueType &new_value) {
+  //插入一直溢出到根节点仍然放不下
+  //于是新的根节点同时指向旧的根节点所在的pageID和溢出来部分的pageID
+  array[0].second = old_value;
+  array[1] = MappingType(new_key, new_value);
+  //不要忘记更新page中键值对个数
+  SetSize(2);
+}
 /*
  * Insert new_key & new_value pair right after the pair with its value ==
  * old_value
@@ -87,7 +129,18 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::PopulateNewRoot(const ValueType &old_value,
 INDEX_TEMPLATE_ARGUMENTS
 int B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertNodeAfter(const ValueType &old_value, const KeyType &new_key,
                                                     const ValueType &new_value) {
-  return 0;
+  int now_index = ValueIndex(old_value);
+  //判断是否能找到value==old_value的位置
+  //不需要判断是否有足够空间插入新的元素, 在b_plus_tree.cpp层面会判断, 若溢出会进行对该page进行split操作
+  int now_size = GetSize();
+  assert(now_index!=-1);
+  //需要将其他元素往后移
+  for(int i = now_size; i >= now_index+2; i--){
+    array[i] = array[i-1];
+  }
+  array[now_index+1] = MappingType(new_key, new_value);
+  IncreaseSize(1);
+  return now_size+1;
 }
 
 /*****************************************************************************
@@ -98,14 +151,31 @@ int B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertNodeAfter(const ValueType &old_value, 
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveHalfTo(BPlusTreeInternalPage *recipient,
-                                                BufferPoolManager *buffer_pool_manager) {}
+                                                BufferPoolManager *buffer_pool_manager) {
+  int start_index = GetMinSize();
+  int move_num = GetSize()-start_index;
+  recipient->CopyNFrom(array+start_index, move_num, buffer_pool_manager);
+  IncreaseSize(-move_num);
+}
 
 /* Copy entries into me, starting from {items} and copy {size} entries.
  * Since it is an internal page, for all entries (pages) moved, their parents page now changes to me.
  * So I need to 'adopt' them by changing their parent page id, which needs to be persisted with BufferPoolManger
  */
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyNFrom(MappingType *items, int size, BufferPoolManager *buffer_pool_manager) {}
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyNFrom(MappingType *items, int size, BufferPoolManager *buffer_pool_manager) {
+  //将[items, items+size)拷贝到以array+GetSize()所在的地址空间
+  std::copy(items, items+size, array+GetSize());
+  //更改拷贝后所指向page的parentPageID
+  for(int i = 0; i < size; i++){
+    Page* page = buffer_pool_manager->FetchPage(ValueAt(GetSize()+i));
+    BPlusTreePage *node = reinterpret_cast<BPlusTreePage *>(page->GetData());
+    node->SetPageId(GetPageId());
+    buffer_pool_manager->UnpinPage(page->GetPageId(), true);
+  }
+  //不要漏掉page中节点个数的更新
+  IncreaseSize(size);
+}
 
 /*****************************************************************************
  * REMOVE
@@ -116,14 +186,22 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyNFrom(MappingType *items, int size, Buf
  * NOTE: store key&value pair continuously after deletion
  */
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Remove(int index) {}
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Remove(int index) {
+  int maxNum = GetMaxSize();
+  for(int i = index; i < maxNum-1; i++)
+    array[index] = array[index+1];
+  IncreaseSize(-1);
+}
 
 /*
  * Remove the only key & value pair in internal page and return the value
  * NOTE: only call this method within AdjustRoot()(in b_plus_tree.cpp)
  */
 INDEX_TEMPLATE_ARGUMENTS
-ValueType B_PLUS_TREE_INTERNAL_PAGE_TYPE::RemoveAndReturnOnlyChild() { return INVALID_PAGE_ID; }
+ValueType B_PLUS_TREE_INTERNAL_PAGE_TYPE::RemoveAndReturnOnlyChild() { 
+  SetSize(0);
+  return ValueAt(0);
+}
 /*****************************************************************************
  * MERGE
  *****************************************************************************/
@@ -136,7 +214,13 @@ ValueType B_PLUS_TREE_INTERNAL_PAGE_TYPE::RemoveAndReturnOnlyChild() { return IN
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveAllTo(BPlusTreeInternalPage *recipient, const KeyType &middle_key,
-                                               BufferPoolManager *buffer_pool_manager) {}
+                                               BufferPoolManager *buffer_pool_manager) {
+  //还需要设置嘛？
+  //合并时父节点需要下移
+  SetKeyAt(0, middle_key);
+  recipient->CopyNFrom(array, GetSize(), buffer_pool_manager);
+  SetSize(0);
+}
 
 /*****************************************************************************
  * REDISTRIBUTE

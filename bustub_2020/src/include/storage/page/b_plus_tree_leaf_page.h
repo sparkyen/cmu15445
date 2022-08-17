@@ -67,6 +67,7 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   void CopyNFrom(MappingType *items, int size);
   void CopyLastFrom(const MappingType &item);
   void CopyFirstFrom(const MappingType &item);
+  //单独使用一个变量来记录叶子节点的下一个节点位置
   page_id_t next_page_id_;
   MappingType array[0];
 };
