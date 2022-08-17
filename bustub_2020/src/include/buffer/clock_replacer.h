@@ -15,10 +15,11 @@
 #include <list>
 #include <mutex>  // NOLINT
 #include <vector>
+#include <utility>
 
 #include "buffer/replacer.h"
 #include "common/config.h"
-
+using namespace std;
 namespace bustub {
 
 /**
@@ -47,6 +48,14 @@ class ClockReplacer : public Replacer {
 
  private:
   // TODO(student): implement me!
+  struct ClockItem{
+    bool contained;
+    bool ref;
+  };
+  std::vector<ClockItem> replacer;
+  size_t hand;
+  std::mutex mutex;
+
 };
 
 }  // namespace bustub

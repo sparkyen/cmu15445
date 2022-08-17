@@ -28,7 +28,8 @@ INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, int max_size) {
   //需要使用get/set方法，否则使用private对象直接error: page_id_’ is private within this context
   SetPageId(page_id);
-  SetPageId(parent_id);
+  //不要把SetParentPageId写成SetPageId
+  SetParentPageId(parent_id);
   SetMaxSize(max_size);
   SetPageType(IndexPageType::INTERNAL_PAGE);
   SetSize(0);
@@ -40,13 +41,11 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id
 INDEX_TEMPLATE_ARGUMENTS
 KeyType B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const {
   // replace with your own code
-  assert(index>=0&&index<GetSize());
   return array[index].first;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
-  assert(index>=0&&index<GetSize());
   array[index].first =  key;
 }
 
@@ -68,7 +67,9 @@ int B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueIndex(const ValueType &value) const {
  */
 INDEX_TEMPLATE_ARGUMENTS
 ValueType B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const { 
-  assert(index>=0&&index<GetSize());
+  //不需要 assert(index>=0&&index<GetSize())
+  //因为其逻辑会在更高层的(调用其的函数)那里受到判断和约束
+  //半天找不出bug的教训告诉你不要随便乱抄别人的代码，自己要思索再三
   return array[index].second;
 }
 
@@ -154,7 +155,9 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveHalfTo(BPlusTreeInternalPage *recipient
                                                 BufferPoolManager *buffer_pool_manager) {
   int start_index = GetMinSize();
   int move_num = GetSize()-start_index;
+  std::cout << "@Internal's MoveHalfTo: BEGIN "<< endl;
   recipient->CopyNFrom(array+start_index, move_num, buffer_pool_manager);
+  std::cout << "@Internal's MoveHalfTo: DONE "<< endl;
   IncreaseSize(-move_num);
 }
 
@@ -168,9 +171,12 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyNFrom(MappingType *items, int size, Buf
   std::copy(items, items+size, array+GetSize());
   //更改拷贝后所指向page的parentPageID
   for(int i = 0; i < size; i++){
+    std::cout << "@Internal's CopyNFrom: index is "<< GetSize()+i << endl;
     Page* page = buffer_pool_manager->FetchPage(ValueAt(GetSize()+i));
+    
     BPlusTreePage *node = reinterpret_cast<BPlusTreePage *>(page->GetData());
-    node->SetPageId(GetPageId());
+    //不要把SetParentPageId写成SetPageId
+    node->SetParentPageId(GetPageId());
     buffer_pool_manager->UnpinPage(page->GetPageId(), true);
   }
   //不要漏掉page中节点个数的更新

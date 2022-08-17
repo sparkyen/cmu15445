@@ -34,6 +34,8 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, in
   //不要漏掉
   SetPageType(IndexPageType::LEAF_PAGE);
   SetSize(0);
+  //也不要漏掉这个，因为最开始next page id不存在，并且生成的.dot图很奇怪
+  SetNextPageId(INVALID_PAGE_ID); 
 }
 
 /**
@@ -67,7 +69,6 @@ int B_PLUS_TREE_LEAF_PAGE_TYPE::KeyIndex(const KeyType &key, const KeyComparator
  */
 INDEX_TEMPLATE_ARGUMENTS
 KeyType B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const {
-  assert(index>=0&&index<=GetSize());
   return array[index].first;
 }
 
@@ -77,7 +78,6 @@ KeyType B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const {
  */
 INDEX_TEMPLATE_ARGUMENTS
 const MappingType &B_PLUS_TREE_LEAF_PAGE_TYPE::GetItem(int index) {
-  assert(index>=0&&index<=GetSize());
   return array[index];
 }
 
@@ -90,6 +90,7 @@ const MappingType &B_PLUS_TREE_LEAF_PAGE_TYPE::GetItem(int index) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 int B_PLUS_TREE_LEAF_PAGE_TYPE::Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator) {
+  // std::cout << "@Insert" << endl;
   int num_size, pos;
   num_size = pos = GetSize();
   for(int i = 0; i < num_size; i++){
@@ -101,6 +102,8 @@ int B_PLUS_TREE_LEAF_PAGE_TYPE::Insert(const KeyType &key, const ValueType &valu
   for(int i = num_size; i > pos; i--) array[i] = array[i-1];
   array[pos] = MappingType(key, value);
   IncreaseSize(1);
+  std::cout << "@Leaf's Insert: Page ID " << GetPageId() << " has "<< GetSize() 
+  << " elements" << endl;
   return ++num_size;
 }
 

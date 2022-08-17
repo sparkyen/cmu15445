@@ -1,7 +1,0 @@
-digraph G {
-INT_0[shape=plain color=pink label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
-<TR><TD COLSPAN="0">P=0</TD></TR>
-<TR><TD COLSPAN="0">max_size=0,min_size=0</TD></TR>
-<TR></TR></TABLE>>];
-INT_0:p0 -> INT_0;
-}
