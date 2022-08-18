@@ -213,7 +213,7 @@ TEST(BPlusTreeTests, ScaleTest) {
   //origin: 30
   //size必须>=4, 因为buffer_pool首先会置入header_page并一直占用1个空间
   //抛开最初存放数值的节点，其次split新建new_node和new_root是会占用2个空间，这些至少占用3个空间
-  BufferPoolManager *bpm = new BufferPoolManager(4, disk_manager);
+  BufferPoolManager *bpm = new BufferPoolManager(30, disk_manager);
   // create b+ tree
   BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator);
   GenericKey<8> index_key;
@@ -226,7 +226,7 @@ TEST(BPlusTreeTests, ScaleTest) {
   (void)header_page;
 
   //origin: 10000
-  int64_t scale = 255;
+  int64_t scale = 10000;
   std::vector<int64_t> keys;
   for (int64_t key = 1; key < scale; key++) {
     keys.push_back(key);

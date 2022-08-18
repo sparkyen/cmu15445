@@ -30,7 +30,8 @@ INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, int max_size) {
   SetPageId(page_id);
   SetParentPageId(parent_id);
-  SetMaxSize(max_size);
+  //实际容量为原maxsize-1
+  SetMaxSize(max_size-1);
   //不要漏掉
   SetPageType(IndexPageType::LEAF_PAGE);
   SetSize(0);

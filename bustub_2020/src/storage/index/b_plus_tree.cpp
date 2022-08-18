@@ -183,8 +183,16 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
    * 原来只是保存max_size-1的值，否则也像我实验中为了找出bug，不断地打印buffer_pool中的page_id
    * 发现page_id很异常，有的信息不是不断地被替换，而是越来越多的page_id变为0，
    * 最后直接无法运行，直接终止了，可能就是因为溢出的问题
+   * 
+   * 
+   * 也可以在初始化时直接将max_size设置为max_size-1
+   * 为了实现插入 如果发现满了，然后分裂。
+   * 如果不留这个空间，后续分裂代码的逻辑会十分复杂。算是一个简化代码复杂度的哨兵吧。
+   * ref: https://www.jianshu.com/p/628a39d03b79
+   * 
+   * 最后选择采用在初始化时时的做法，这样显得其他代码逻辑更加清晰
   */
-  if(leaf->GetSize()<leaf->GetMaxSize()){
+  if(leaf->GetSize()<=leaf->GetMaxSize()){
     buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), true);
     //DEBUG
     for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
