@@ -103,7 +103,7 @@ int B_PLUS_TREE_LEAF_PAGE_TYPE::Insert(const KeyType &key, const ValueType &valu
   array[pos] = MappingType(key, value);
   IncreaseSize(1);
   std::cout << "@Leaf's Insert: Page ID " << GetPageId() << " has "<< GetSize() 
-  << " elements" << endl;
+  << " elements" << std::endl;
   return ++num_size;
 }
 
@@ -150,7 +150,7 @@ bool B_PLUS_TREE_LEAF_PAGE_TYPE::Lookup(const KeyType &key, ValueType *value, co
     if(comparator(array[mid].first, key)<=0) l = mid;
     else r = mid-1;
   }
-  //找不到第一个>=key的值 或者 找到的值!=key
+  //找不到第一个<=key的值 或者 找到的值!=key
   if(l==-1||comparator(array[l].first, key)!=0) return false;
   *value = array[l].second;
   return true;

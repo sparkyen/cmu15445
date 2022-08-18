@@ -26,9 +26,9 @@ namespace bustub {
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, int max_size) {
-  //需要使用get/set方法，否则使用private对象直接error: page_id_’ is private within this context
+  //需要使用 get/set 方法，否则使用 private 对象直接 error: page_id_’ is private within this context
   SetPageId(page_id);
-  //不要把SetParentPageId写成SetPageId
+  //不要把 SetParentPageId 写成 SetPageId 
   SetParentPageId(parent_id);
   SetMaxSize(max_size);
   SetPageType(IndexPageType::INTERNAL_PAGE);
@@ -86,7 +86,8 @@ INDEX_TEMPLATE_ARGUMENTS
 ValueType B_PLUS_TREE_INTERNAL_PAGE_TYPE::Lookup(const KeyType &key, const KeyComparator &comparator) const {
   //从第二个位置开始才会有值出现
   int now_size = GetSize();
-  assert(now_size>1);
+  //不需要 assert(now_size>1);
+  //若只有一个位置的值说明就在最左边的指针这里 
   /*
     * Lookup含义为：查找now_key应该在哪个value指向的子树中
     * 若找到的位置为i, 则有key(i) <= now_key < key(i+1)
@@ -155,9 +156,9 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveHalfTo(BPlusTreeInternalPage *recipient
                                                 BufferPoolManager *buffer_pool_manager) {
   int start_index = GetMinSize();
   int move_num = GetSize()-start_index;
-  std::cout << "@Internal's MoveHalfTo: BEGIN "<< endl;
+  std::cout << "@Internal's MoveHalfTo: BEGIN "<< std::endl;
   recipient->CopyNFrom(array+start_index, move_num, buffer_pool_manager);
-  std::cout << "@Internal's MoveHalfTo: DONE "<< endl;
+  std::cout << "@Internal's MoveHalfTo: DONE "<< std::endl;
   IncreaseSize(-move_num);
 }
 
@@ -171,7 +172,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyNFrom(MappingType *items, int size, Buf
   std::copy(items, items+size, array+GetSize());
   //更改拷贝后所指向page的parentPageID
   for(int i = 0; i < size; i++){
-    std::cout << "@Internal's CopyNFrom: index is "<< GetSize()+i << endl;
+    std::cout << "@Internal's CopyNFrom: index is "<< GetSize()+i << std::endl;
     Page* page = buffer_pool_manager->FetchPage(ValueAt(GetSize()+i));
     
     BPlusTreePage *node = reinterpret_cast<BPlusTreePage *>(page->GetData());

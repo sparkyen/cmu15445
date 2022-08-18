@@ -26,7 +26,7 @@ namespace bustub {
  * Then check whether the keys are distributed in separate
  * leaf nodes
  */
-TEST(BPlusTreeTests, SplitTest) {
+TEST(BPlusTreeTests, DISABLED_SplitTest) {
   // create KeyComparator and index schema
   Schema *key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema);
@@ -34,6 +34,7 @@ TEST(BPlusTreeTests, SplitTest) {
   DiskManager *disk_manager = new DiskManager("test.db");
   BufferPoolManager *bpm = new BufferPoolManager(50, disk_manager);
   // create b+ tree
+  //leaf_max_size = 2, internal_max_size = 3
   BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 2, 3);
   GenericKey<8> index_key;
   RID rid;
@@ -67,13 +68,19 @@ TEST(BPlusTreeTests, SplitTest) {
   EXPECT_EQ(2, leaf_node->GetMaxSize());
 
   // Check the next 4 pages
+  // modified by sparkyen: i<4 -> i<3
+  //从这里发现自己对max_size的理解是错误的
   for (int i = 0; i < 4; i++) {
     EXPECT_NE(INVALID_PAGE_ID, leaf_node->GetNextPageId());
+    std::cout << "$leaf_node " << leaf_node->GetPageId() << " nextPageID is " 
+    << leaf_node->GetNextPageId() << std::endl;
     leaf_node = reinterpret_cast<BPlusTreeLeafPage<GenericKey<8>, RID, GenericComparator<8>> *>(
         bpm->FetchPage(leaf_node->GetNextPageId()));
   }
 
   EXPECT_EQ(INVALID_PAGE_ID, leaf_node->GetNextPageId());
+  std::cout << "$leaf_node " << leaf_node->GetPageId() << " nextPageID is " 
+  << leaf_node->GetNextPageId() << std::endl;
 
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete transaction;
@@ -196,13 +203,17 @@ TEST(BPlusTreeTests, DISABLED_InsertTest2) {
  * a random order. Check whether the key-value pair is valid
  * using GetValue
  */
-TEST(BPlusTreeTests, DISABLED_ScaleTest) {
+TEST(BPlusTreeTests, ScaleTest) {
   // create KeyComparator and index schema
   Schema *key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema);
 
   DiskManager *disk_manager = new DiskManager("test.db");
-  BufferPoolManager *bpm = new BufferPoolManager(30, disk_manager);
+
+  //origin: 30
+  //size必须>=4, 因为buffer_pool首先会置入header_page并一直占用1个空间
+  //抛开最初存放数值的节点，其次split新建new_node和new_root是会占用2个空间，这些至少占用3个空间
+  BufferPoolManager *bpm = new BufferPoolManager(4, disk_manager);
   // create b+ tree
   BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator);
   GenericKey<8> index_key;
@@ -214,7 +225,8 @@ TEST(BPlusTreeTests, DISABLED_ScaleTest) {
   auto header_page = bpm->NewPage(&page_id);
   (void)header_page;
 
-  int64_t scale = 10000;
+  //origin: 10000
+  int64_t scale = 255;
   std::vector<int64_t> keys;
   for (int64_t key = 1; key < scale; key++) {
     keys.push_back(key);
@@ -239,7 +251,8 @@ TEST(BPlusTreeTests, DISABLED_ScaleTest) {
     int64_t value = key & 0xFFFFFFFF;
     EXPECT_EQ(rids[0].GetSlotNum(), value);
   }
-
+  // Add by sparkyen
+  tree.Draw(bpm, "tree.dot");
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete key_schema;
   delete transaction;

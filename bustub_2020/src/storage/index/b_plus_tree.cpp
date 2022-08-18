@@ -48,6 +48,7 @@ INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) {
   //不需要写一长串递归寻找，可以复用FindLeafPage()
   Page* leaf_page = FindLeafPage(key);
+  std::cout << "@GetValue: FindLeafPage DONE" << std::endl;
   LeafPage* leaf = reinterpret_cast<LeafPage *>(leaf_page->GetData());
   
   ValueType tmpValue;
@@ -72,9 +73,17 @@ bool BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
  */
 INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *transaction) { 
-  std::cout << "@Insert: Begin to Insert" << endl;
+  //使用LOG_DEBUG前面会附加上 2022-08-17 20:44:10 [home/sean/cmu15445/bustub_2020/src/storage/index/b_plus_tree.cpp:75:Insert]
+  // LOG_DEBUG("@Insert: Begin to Insert\n");
+  std::cout << "@Insert: Begin to Insert" << std::endl;
   if(IsEmpty()){
     StartNewTree(key, value);
+    //DEBUG
+    for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
+      Page* page = &(buffer_pool_manager_->GetPages())[i];
+      // if(page->GetPageId()==INVALID_PAGE_ID) continue;
+      std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
+    }
     return true;
   }
   return InsertIntoLeaf(key, value, transaction);
@@ -93,15 +102,15 @@ void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
   }
   LeafPage* leaf_page = reinterpret_cast<LeafPage *>(page->GetData());
   leaf_page->Init(root_page_id_, INVALID_PAGE_ID, leaf_max_size_);
-  std::cout << "@StartNewTree: leaf is RootPage ? " << leaf_page->GetParentPageId() << endl;
+  std::cout << "@StartNewTree: leaf is RootPage ? " << leaf_page->GetParentPageId() << std::endl;
   std::cout << "@StartNewTree: root_page_id_ " << root_page_id_ << " has " << leaf_page->GetSize() 
-  << " elements" << endl;
-  std::cout << "@StartNewTree: root_page_id_ " << root_page_id_ << " insert " << key.ToString() << " " << value.ToString() << endl;
+  << " elements" << std::endl;
+  std::cout << "@StartNewTree: root_page_id_ " << root_page_id_ << " insert " << key.ToString() << " " << value.ToString() << std::endl;
   leaf_page->Insert(key, value, comparator_);
   std::cout << "@StartNewTree: root_page_id_ " << root_page_id_ 
   << " has " << leaf_page->GetSize() 
   << " & isEmpty(): " << IsEmpty()
-  << endl;
+  << std::endl;
   
   UpdateRootPageId(true);
 
@@ -118,7 +127,7 @@ void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, Transaction *transaction) {
-  std::cout << "@InsertIntoLeaf: insert " << key.ToString() << " " << value.ToString() << endl;
+  std::cout << "@InsertIntoLeaf: insert " << key.ToString() << " " << value.ToString() << std::endl;
   //1. find the right leaf page as insertion target
   //在FindLeafPage时已经在Fetch中Pin过了
   Page* leaf_page = FindLeafPage(key);
@@ -126,24 +135,75 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
 
   //2. look through leaf page to see whether insert key exist or not
   LeafPage* leaf = reinterpret_cast<LeafPage *>(leaf_page->GetData());
-  std::cout << "@InsertIntoLeaf: leaf is RootPage ? " << leaf->GetParentPageId() << endl;
+  std::cout << "@InsertIntoLeaf: leaf is RootPage ? " << leaf->GetParentPageId() << std::endl;
   ValueType tmpValue;
   //2.1 If exist, return immdiately
   //since we only support unique key, 
   //if user try to insert duplicate keys return false
   if(leaf->Lookup(key, &tmpValue, comparator_)){
     buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), false);
+    //DEBUG
+    for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
+      Page* page = &(buffer_pool_manager_->GetPages())[i];
+      // if(page->GetPageId()==INVALID_PAGE_ID) continue;
+      std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
+    }
     return false;
+  }
+  //DEBUG
+  std::cout << "\n@BufferPool After LookUp" << std::endl;
+  for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
+    Page* page = &(buffer_pool_manager_->GetPages())[i];
+    // if(page->GetPageId()==INVALID_PAGE_ID) continue;
+    std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
   }
   //2.2  otherwise insert entry
   leaf->Insert(key, value, comparator_);
-  if(leaf->GetSize()<=leaf->GetMaxSize()){
+  //DEBUG
+  std::cout << "\n@BufferPool After Insert" << std::endl;
+  for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
+    Page* page = &((buffer_pool_manager_->GetPages())[i]);
+    // if(page->GetPageId()==INVALID_PAGE_ID) continue;
+    std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
+  }
+  std::cout << "@InsertIntoLeaf: leaf's PageID is " << leaf->GetPageId() << std::endl;
+
+  /*
+   * NOTE: 一个节点真正能够存储的节点数目其实是max_size-1
+   * 前面在b_plus_tree_page这个类里面，我们看到了一个叫做max_size的属性，
+   * 但是按照课本上面的说法，一个节点真正能够存储的节点数目其实是max_size-1，
+   * 最后一个数组项充当一个哨兵的作用。之所以这样做是因为可以方便我们分裂的处理，
+   * 比如我们这个page的元素数量已经是max_size-1了，然后再插入一个，把新插入的存到我们的page里面，
+   * 插入完成之后我们检查发现，这个page的size等于max_size，那么我们就可以直接把这个page传给一个split函数，
+   * 让它进行分裂就好了。
+   * 如果最后一个不充当哨兵的话，那么就会存在再插入的时候这个page已经放不下的情况，能处理，但相对没那么优雅。
+   * ref: https://zhuanlan.zhihu.com/p/382244184
+   * 
+   * 并且个人觉得让设定好的数据结构直接溢出是件很危险的事，一开始不理解为什么都这么危险还可以这么做
+   * 原来只是保存max_size-1的值，否则也像我实验中为了找出bug，不断地打印buffer_pool中的page_id
+   * 发现page_id很异常，有的信息不是不断地被替换，而是越来越多的page_id变为0，
+   * 最后直接无法运行，直接终止了，可能就是因为溢出的问题
+  */
+  if(leaf->GetSize()<leaf->GetMaxSize()){
     buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), true);
+    //DEBUG
+    for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
+      Page* page = &(buffer_pool_manager_->GetPages())[i];
+      // if(page->GetPageId()==INVALID_PAGE_ID) continue;
+      std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
+    }
     return true;
+  }
+  //DEBUG
+  std::cout << "\n@BufferPool Before Split" << std::endl;
+  for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
+    Page* page = &(buffer_pool_manager_->GetPages())[i];
+    // if(page->GetPageId()==INVALID_PAGE_ID) continue;
+    std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
   }
   //2.2.1 split if necessary
   LeafPage* new_leaf = Split(leaf);
-  std::cout << "@InsertIntoLeaf: SPLIT DONE" << endl;
+  std::cout << "@InsertIntoLeaf: SPLIT DONE" << std::endl;
   //leaf -> next_leaf >>> leaf -> new_leaf -> next_leaf
   //顺序要注意
   //并且不要把SetNextPageId写成SetPageId
@@ -151,16 +211,23 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
   leaf->SetNextPageId(new_leaf->GetPageId());
   
   KeyType middle_key = new_leaf->KeyAt(0);
-  std::cout << "@InsertIntoLeaf: leaf is RootPage ? " << leaf->IsRootPage() << endl;
-  std::cout << "@InsertIntoLeaf: new_leaf's PageID is " << new_leaf->GetPageId() << endl;
+  std::cout << "@InsertIntoLeaf: leaf is RootPage ? " << leaf->IsRootPage() << std::endl;
+  std::cout << "@InsertIntoLeaf: new_leaf's PageID is " << new_leaf->GetPageId() << std::endl;
   //需要传入transaction
   InsertIntoParent(leaf, middle_key, new_leaf, transaction);
    std::cout << "@InsertIntoLeaf: leaf " << leaf->GetPageId() 
-   << " with new_leaf " << new_leaf->GetPageId() << endl;
+   << " with new_leaf " << new_leaf->GetPageId() << std::endl;
 
   //3. 使用完后记得取消对页面的引用
   buffer_pool_manager_->UnpinPage(leaf->GetPageId(), true);
   buffer_pool_manager_->UnpinPage(new_leaf->GetPageId(), true);
+  //DEBUG
+  for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
+    Page* page = &(buffer_pool_manager_->GetPages())[i];
+    // if(page->GetPageId()==INVALID_PAGE_ID) continue;
+    std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
+  }
+
   return true;
 }
 
@@ -175,11 +242,11 @@ INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
 // 0. Using template N to represent either internal page or leaf page.
 N *BPLUSTREE_TYPE::Split(N *node) {
-  std::cout << "@Split: Begin to split node " << node->GetPageId() << endl;
+  std::cout << "@Split: Begin to split node " << node->GetPageId() << std::endl;
   //1. ask for new page from buffer pool manager
   page_id_t new_page_id;
   Page* new_page = buffer_pool_manager_->NewPage(&new_page_id);
-  std::cout << "@Split: new_node's PageID is " << new_page_id << endl;
+  std::cout << "@Split: new_node's PageID is " << new_page_id << std::endl;
   //1.2 throw an "out of memory" exception if returned value is nullptr
   if(new_page==nullptr){
     throw Exception(ExceptionType::OUT_OF_MEMORY, "Cannot allocate new page");
@@ -187,25 +254,25 @@ N *BPLUSTREE_TYPE::Split(N *node) {
   N *new_node = reinterpret_cast<N *>(new_page->GetData());
   new_node->SetPageType(node->GetPageType());
   if(node->IsLeafPage()){
-    std::cout << "@Split: node " << node->GetPageId() << " is LeafNode" << endl;
+    std::cout << "@Split: node " << node->GetPageId() << " is LeafNode" << std::endl;
     LeafPage* leaf = reinterpret_cast<LeafPage *>(node);
     LeafPage* new_leaf = reinterpret_cast<LeafPage *>(new_node);
     //使用之前需要先初始化
     new_leaf->Init(new_page_id, leaf->GetParentPageId(), leaf_max_size_);
     leaf->MoveHalfTo(new_leaf);
-    // std::cout << "@Split: new_leaf's PageID is " << new_leaf->GetPageId() << endl;
-    std::cout << "@Split: DONE" << endl;
+    // std::cout << "@Split: new_leaf's PageID is " << new_leaf->GetPageId() << std::endl;
+    std::cout << "@Split: DONE" << std::endl;
   }
   else {
-    std::cout << "@Split: node " << node->GetPageId() << " is InternalNode" << endl;
+    std::cout << "@Split: node " << node->GetPageId() << " is InternalNode" << std::endl;
     InternalPage* internal = reinterpret_cast<InternalPage *>(node);
     InternalPage* new_internal = reinterpret_cast<InternalPage *>(new_node);
     //使用之前需要先初始化
     //但是不要把internal->GetParentPageId()写成internal->GetPageId()
     new_internal->Init(new_page_id, internal->GetParentPageId(), internal_max_size_);
-    std::cout << "@Split: new_internal's PageID is " << new_internal->GetPageId() << endl;
+    std::cout << "@Split: new_internal's PageID is " << new_internal->GetPageId() << std::endl;
     internal->MoveHalfTo(new_internal, buffer_pool_manager_);
-    std::cout << "@Split: MoveHalfTo DONE "<< endl;
+    std::cout << "@Split: MoveHalfTo DONE "<< std::endl;
   }
   return new_node;
 }
@@ -222,27 +289,32 @@ N *BPLUSTREE_TYPE::Split(N *node) {
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &key, BPlusTreePage *new_node,
                                       Transaction *transaction) {
-   std::cout << "@InsertIntoParent: BEGIN" << endl;
+   std::cout << "@InsertIntoParent: BEGIN" << std::endl;
+   std::cout << "@InsertIntoParent: insert " << key.ToString() << " " << new_node->GetPageId() << std::endl;
   //1. old_node是根结点，那么整棵树直接升高一层
   if(old_node->IsRootPage()){
-    std::cout << "@InsertIntoParent: old_node " << old_node->GetPageId() << " is RootNode" << endl;
+    std::cout << "@InsertIntoParent: old_node " << old_node->GetPageId() << " is RootNode" << std::endl;
     page_id_t new_page_id;
     Page* new_page = buffer_pool_manager_->NewPage(&new_page_id);
+    //一定要抛出错误，这样才能发现问题
+    if(new_page==nullptr){
+      throw Exception(ExceptionType::OUT_OF_MEMORY, "Cannot allocate new page");
+    }
     root_page_id_ = new_page_id;
-    // std::cout << "@InsertIntoParent: root_node's PageID is " << root_page_id_ << endl;
+    // std::cout << "@InsertIntoParent: root_node's PageID is " << root_page_id_ << std::endl;
     InternalPage* root = reinterpret_cast<InternalPage *>(new_page->GetData());
     //先初始化再使用
     root->Init(new_page_id, INVALID_PAGE_ID, internal_max_size_);
-    std::cout << "@InsertIntoParent: root_node's PageID is " << root->GetPageId() << endl;
+    std::cout << "@InsertIntoParent: root_node's PageID is " << root->GetPageId() << std::endl;
     //对于新建的根节点使用PopulateNewRoot()而不是InsertNodeAfter()
     root->PopulateNewRoot(old_node->GetPageId(), key, new_node->GetPageId());
     std::cout << "@InsertIntoParent: old_node's PageID is " << old_node->GetPageId()
-    << " & new_node's PageID is " << new_node->GetPageId() << endl;
+    << " & new_node's PageID is " << new_node->GetPageId() << std::endl;
     // 修改old_node和new_node的父指针
     old_node->SetParentPageId(root_page_id_);
     new_node->SetParentPageId(root_page_id_);
-    std::cout << "@InsertIntoParent: old_node & new_node's ParentPageID is " << old_node->GetParentPageId() << endl;
-    // std::cout << "@InsertIntoParent: root_node's PageID is " << root->GetPageId() << endl;
+    std::cout << "@InsertIntoParent: old_node & new_node's ParentPageID is " << old_node->GetParentPageId() << std::endl;
+    // std::cout << "@InsertIntoParent: root_node's PageID is " << root->GetPageId() << std::endl;
     //不要忘记写脏标志
     //另外不需要在这里取消对old_node和new_node的引用
     //调用InsertIntoParent()的上层函数会负责
@@ -262,13 +334,13 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
   parent_node->InsertNodeAfter(old_node->GetPageId(), key, new_node->GetPageId());
   // Caution: 可以不修改new_node的父指针,因为在split()已经初始化过了
   // new_node->SetParentPageId(old_node->GetParentPageId());
-  std::cout << "@InsertIntoParent: old_node & new_node's ParentPageID is " << new_node->GetParentPageId() << endl;
-  std::cout << "@InsertIntoParent: parent_node's PageID is " << parent_node->GetPageId() << endl;
+  std::cout << "@InsertIntoParent: old_node & new_node's ParentPageID is " << new_node->GetParentPageId() << std::endl;
+  std::cout << "@InsertIntoParent: parent_node's PageID is " << parent_node->GetPageId() << std::endl;
   //2.3. deal with split recursively if necessary.
   if(parent_node->GetSize()>parent_node->GetMaxSize()){
-    // std::cout << "@InsertIntoParent: parent_node's PageID is " << parent_node->GetPageId() << endl;
+    // std::cout << "@InsertIntoParent: parent_node's PageID is " << parent_node->GetPageId() << std::endl;
     InternalPage* new_parent_node = Split(parent_node);
-    std::cout << "@InsertIntoParent: new_parent_node's PageID is " << new_parent_node->GetPageId() << endl;
+    std::cout << "@InsertIntoParent: new_parent_node's PageID is " << new_parent_node->GetPageId() << std::endl;
     KeyType middle_key = new_parent_node->KeyAt(0);
     InsertIntoParent(parent_node, middle_key, new_parent_node);
     buffer_pool_manager_->UnpinPage(new_parent_node->GetPageId(), true);
@@ -399,7 +471,8 @@ Page *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool leftMost) {
     and unpin the page after any writing or reading operations.
   */
   BPlusTreePage *tree_page = reinterpret_cast<BPlusTreePage *>(origin_page->GetData());
-  page_id_t parent_page_id, child_page_id;
+  //需要将parent_page_id初始值赋为tree_page->GetPageId()才能Unpin root_page
+  page_id_t parent_page_id = tree_page->GetPageId(), child_page_id;
   while(!tree_page->IsLeafPage()){
     InternalPage *internal_page = reinterpret_cast<InternalPage *>(tree_page);
     if(leftMost) child_page_id = internal_page->ValueAt(0);
@@ -492,9 +565,13 @@ void BPLUSTREE_TYPE::ToGraph(BPlusTreePage *page, BufferPoolManager *bpm, std::o
     // Print data
     out << "<TR><TD COLSPAN=\"" << leaf->GetSize() << "\">P=" << leaf->GetPageId() << "</TD></TR>\n";
     out << "<TR><TD COLSPAN=\"" << leaf->GetSize() << "\">"
-        << "max_size=" << leaf->GetMaxSize() << ",min_size=" << leaf->GetMinSize() << "</TD></TR>\n";
+        //Add by sparkyen
+        << "now_size=" << leaf->GetSize()
+        << ",max_size=" << leaf->GetMaxSize() << ",min_size=" << leaf->GetMinSize() << "</TD></TR>\n";
     out << "<TR>";
     for (int i = 0; i < leaf->GetSize(); i++) {
+      //Add by sparkyen
+      if(i!=0&&i%15==0) out << "</TR>\n<TR>";
       out << "<TD>" << leaf->KeyAt(i) << "</TD>\n";
     }
     out << "</TR>";
