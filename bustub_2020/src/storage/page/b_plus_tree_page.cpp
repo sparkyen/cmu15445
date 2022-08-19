@@ -60,7 +60,7 @@ void BPlusTreePage::SetMaxSize(int size) {
  * With n = 4 in our example B+-tree, each leaf must contain at least 2 values, and at most 3 values.
  */
 int BPlusTreePage::GetMinSize() const { 
-    //需要向上取整, 但是只能存储max_size-1个值, 因此不需要额外+1了
+    //需要向上取整
     return (max_size_+1)/2;
 }
 

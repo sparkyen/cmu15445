@@ -190,7 +190,13 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
    * 如果不留这个空间，后续分裂代码的逻辑会十分复杂。算是一个简化代码复杂度的哨兵吧。
    * ref: https://www.jianshu.com/p/628a39d03b79
    * 
-   * 最后选择采用在初始化时时的做法，这样显得其他代码逻辑更加清晰
+   * 最后选择采用在初始化时的做法，这样显得其他代码逻辑更加清晰
+   * 
+   * gradescope 的scaleTest直接使用INTERNAL_PAGE_SIZE和LEAF_PAGE_SIZE作为max_size
+   * PAGE_SIZE的大小在config.h中
+   * 经过测试发现在这种情况下Insert溢出会导致原本buffer_pool中对应的PageID会变为0
+   * 而设置比其小的的max_size不会出现这种情况
+   * 在命令行中输入$getconf PAGE_SIZE发现大小刚好为4096
   */
   if(leaf->GetSize()<=leaf->GetMaxSize()){
     buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), true);

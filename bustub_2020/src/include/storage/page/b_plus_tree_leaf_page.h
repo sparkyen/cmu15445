@@ -19,6 +19,7 @@ namespace bustub {
 
 #define B_PLUS_TREE_LEAF_PAGE_TYPE BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>
 #define LEAF_PAGE_HEADER_SIZE 28
+//PAGE_SIZE 定义在config.h中，LEAF_PAGE_SIZE作为没有定义max_size时的默认最大值
 #define LEAF_PAGE_SIZE ((PAGE_SIZE - LEAF_PAGE_HEADER_SIZE) / sizeof(MappingType))
 
 /**
@@ -69,6 +70,8 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   void CopyFirstFrom(const MappingType &item);
   //单独使用一个变量来记录叶子节点的下一个节点位置
   page_id_t next_page_id_;
+  //在深入理解计算机系统一书中，3.10.3节说了：“C语言对于数组引用不进行任何边界检查”。所以在程序运行时并不报错
+  //经过在Dev-c++进行简单的实验，发现事实也确实如此
   MappingType array[0];
 };
 }  // namespace bustub

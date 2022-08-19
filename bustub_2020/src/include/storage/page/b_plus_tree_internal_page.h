@@ -61,6 +61,8 @@ class BPlusTreeInternalPage : public BPlusTreePage {
   void CopyNFrom(MappingType *items, int size, BufferPoolManager *buffer_pool_manager);
   void CopyLastFrom(const MappingType &pair, BufferPoolManager *buffer_pool_manager);
   void CopyFirstFrom(const MappingType &pair, BufferPoolManager *buffer_pool_manager);
+  //在深入理解计算机系统一书中，3.10.3节说了：“C语言对于数组引用不进行任何边界检查”。所以在程序运行时并不报错
+  //经过在Dev-c++进行简单的实验，发现事实也确实如此
   MappingType array[0];
 };
 }  // namespace bustub

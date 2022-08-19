@@ -32,6 +32,7 @@ TEST(BPlusTreeTests, DISABLED_SplitTest) {
   GenericComparator<8> comparator(key_schema);
 
   DiskManager *disk_manager = new DiskManager("test.db");
+  //origin 50
   BufferPoolManager *bpm = new BufferPoolManager(50, disk_manager);
   // create b+ tree
   //leaf_max_size = 2, internal_max_size = 3
@@ -82,7 +83,10 @@ TEST(BPlusTreeTests, DISABLED_SplitTest) {
   std::cout << "$leaf_node " << leaf_node->GetPageId() << " nextPageID is " 
   << leaf_node->GetNextPageId() << std::endl;
 
+  tree.Draw(bpm, "tree.dot");
+
   bpm->UnpinPage(HEADER_PAGE_ID, true);
+
   delete transaction;
   delete disk_manager;
   delete bpm;
