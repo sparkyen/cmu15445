@@ -77,13 +77,6 @@ Page *BufferPoolManager::FetchPageImpl(page_id_t page_id) {
   //read in the page content from disk
   disk_manager_->ReadPage(page_id, page->data_);
 
-  //DEBUG
-  for(size_t i = 0; i < pool_size_; i++){
-    Page* page = &pages_[i];
-    // if(page->GetPageId()==INVALID_PAGE_ID) continue;
-    std::cout << "@BufferPool with PageID " << page->GetPageId() << endl;
-  }
-  
   return page;
 }
 
@@ -150,14 +143,6 @@ Page *BufferPoolManager::NewPageImpl(page_id_t *page_id) {
   page->pin_count_ = 1;
   page->is_dirty_ = false;
   page->ResetMemory();
-
-  //DEBUG
-  for(size_t i = 0; i < pool_size_; i++){
-    Page* page = &pages_[i];
-    // if(page->GetPageId()==INVALID_PAGE_ID) continue;
-    std::cout << "@BufferPool with PageID " << page->GetPageId() << endl;
-  }
-
   // 4.   Set the page ID output parameter. Return a pointer to P.
   return page;
 }

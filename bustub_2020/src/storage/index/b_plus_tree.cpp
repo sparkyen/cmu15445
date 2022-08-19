@@ -75,15 +75,9 @@ INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *transaction) { 
   //使用LOG_DEBUG前面会附加上 2022-08-17 20:44:10 [home/sean/cmu15445/bustub_2020/src/storage/index/b_plus_tree.cpp:75:Insert]
   // LOG_DEBUG("@Insert: Begin to Insert\n");
-  std::cout << "@Insert: Begin to Insert" << std::endl;
+  std::cout << "\n@Insert: Begin to Insert" << std::endl;
   if(IsEmpty()){
     StartNewTree(key, value);
-    //DEBUG
-    for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
-      Page* page = &(buffer_pool_manager_->GetPages())[i];
-      // if(page->GetPageId()==INVALID_PAGE_ID) continue;
-      std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
-    }
     return true;
   }
   return InsertIntoLeaf(key, value, transaction);
@@ -127,7 +121,7 @@ void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, Transaction *transaction) {
-  std::cout << "@InsertIntoLeaf: insert " << key.ToString() << " " << value.ToString() << std::endl;
+  std::cout << "@InsertIntoLeaf: insert " << key.ToString() << " " << value.ToString();
   //1. find the right leaf page as insertion target
   //在FindLeafPage时已经在Fetch中Pin过了
   Page* leaf_page = FindLeafPage(key);
@@ -142,30 +136,20 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
   //if user try to insert duplicate keys return false
   if(leaf->Lookup(key, &tmpValue, comparator_)){
     buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), false);
-    //DEBUG
-    for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
-      Page* page = &(buffer_pool_manager_->GetPages())[i];
-      // if(page->GetPageId()==INVALID_PAGE_ID) continue;
-      std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
-    }
+
     return false;
-  }
-  //DEBUG
-  std::cout << "\n@BufferPool After LookUp" << std::endl;
-  for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
-    Page* page = &(buffer_pool_manager_->GetPages())[i];
-    // if(page->GetPageId()==INVALID_PAGE_ID) continue;
-    std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
   }
   //2.2  otherwise insert entry
   leaf->Insert(key, value, comparator_);
   //DEBUG
-  std::cout << "\n@BufferPool After Insert" << std::endl;
+  std::cout << "------------------------------------" << std::endl;
+  std::cout << "@BufferPool After Insert" << std::endl;
   for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
     Page* page = &((buffer_pool_manager_->GetPages())[i]);
     // if(page->GetPageId()==INVALID_PAGE_ID) continue;
     std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
   }
+  std::cout << "------------------------------------" << std::endl;
   std::cout << "@InsertIntoLeaf: leaf's PageID is " << leaf->GetPageId() << std::endl;
 
   /*
@@ -200,20 +184,7 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
   */
   if(leaf->GetSize()<=leaf->GetMaxSize()){
     buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), true);
-    //DEBUG
-    for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
-      Page* page = &(buffer_pool_manager_->GetPages())[i];
-      // if(page->GetPageId()==INVALID_PAGE_ID) continue;
-      std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
-    }
     return true;
-  }
-  //DEBUG
-  std::cout << "\n@BufferPool Before Split" << std::endl;
-  for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
-    Page* page = &(buffer_pool_manager_->GetPages())[i];
-    // if(page->GetPageId()==INVALID_PAGE_ID) continue;
-    std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
   }
   //2.2.1 split if necessary
   LeafPage* new_leaf = Split(leaf);
@@ -235,13 +206,6 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
   //3. 使用完后记得取消对页面的引用
   buffer_pool_manager_->UnpinPage(leaf->GetPageId(), true);
   buffer_pool_manager_->UnpinPage(new_leaf->GetPageId(), true);
-  //DEBUG
-  for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
-    Page* page = &(buffer_pool_manager_->GetPages())[i];
-    // if(page->GetPageId()==INVALID_PAGE_ID) continue;
-    std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
-  }
-
   return true;
 }
 

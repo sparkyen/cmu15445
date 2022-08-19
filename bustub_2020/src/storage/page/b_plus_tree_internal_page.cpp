@@ -175,7 +175,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyNFrom(MappingType *items, int size, Buf
   for(int i = 0; i < size; i++){
     std::cout << "@Internal's CopyNFrom: index is "<< GetSize()+i << std::endl;
     Page* page = buffer_pool_manager->FetchPage(ValueAt(GetSize()+i));
-    
+    // std::cout << "@Internal's CopyNFrom: now_child's PageID is "<< page->GetPageId() << std::endl;
     BPlusTreePage *node = reinterpret_cast<BPlusTreePage *>(page->GetData());
     //不要把SetParentPageId写成SetPageId
     node->SetParentPageId(GetPageId());

@@ -91,7 +91,7 @@ const MappingType &B_PLUS_TREE_LEAF_PAGE_TYPE::GetItem(int index) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 int B_PLUS_TREE_LEAF_PAGE_TYPE::Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator) {
-  // std::cout << "@Insert" << endl;
+  // std::cout << "@Leaf's Insert: BEGIN" << endl;
   int num_size, pos;
   num_size = pos = GetSize();
   for(int i = 0; i < num_size; i++){
