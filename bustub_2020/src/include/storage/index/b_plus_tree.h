@@ -66,7 +66,25 @@ class BPlusTree {
   void Draw(BufferPoolManager *bpm, const std::string &outf) {
     std::ofstream out(outf);
     out << "digraph G {" << std::endl;
-    ToGraph(reinterpret_cast<BPlusTreePage *>(bpm->FetchPage(root_page_id_)->GetData()), bpm, out);
+    //Modified by sparkyen
+    if(root_page_id_==INVALID_PAGE_ID){
+      out << "ROOT_INVALID";
+      out << "[shape=plain color=pink ";  // why not?
+      // Print data of the node
+      out << "label=<<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n";
+      // Print data
+      out << "<TR><TD COLSPAN=\"" << 1 << "\">P=INVALID_PAGE_ID" << "</TD></TR>\n";
+      out << "<TR><TD COLSPAN=\"" << 1 << "\">"
+          << "max_size=" << leaf_max_size_-1 << "(leaf)/" << internal_max_size_-1 << "(internal)"
+          << ",min_size=" << (leaf_max_size_)/2 << "/" << (internal_max_size_)/2
+          << "</TD></TR>\n";
+      out << "<TR>";
+      out << "<TD> </TD>\n";
+      out << "</TR>";
+      out << "</TABLE>>];\n";
+    }
+    else 
+      ToGraph(reinterpret_cast<BPlusTreePage *>(bpm->FetchPage(root_page_id_)->GetData()), bpm, out);
     out << "}" << std::endl;
     out.close();
   }

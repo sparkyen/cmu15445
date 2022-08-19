@@ -82,6 +82,10 @@ Page *BufferPoolManager::FetchPageImpl(page_id_t page_id) {
 
 bool BufferPoolManager::UnpinPageImpl(page_id_t page_id, bool is_dirty) { 
   std::scoped_lock lock{latch_};
+  //需要这样处理，否则在b_plus_tree.cpp中还要判断该页是否被删除很麻烦
+  auto iter = page_table_.find(page_id);
+  // 该page在页表中不存在
+  if (iter == page_table_.end()) return false;
   frame_id_t frame_id = page_table_[page_id];
   Page* page = &pages_[frame_id];
   //return false if the page pin count is <= 0 before this call
