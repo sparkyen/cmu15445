@@ -180,6 +180,10 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
    * ref: https://www.jianshu.com/p/628a39d03b79
    * 
    * 最后选择采用在初始化时的做法，这样显得其他代码逻辑更加清晰
+   * 但是后来发现这样过不了测试，于是还是使用<
+   * 原因是其实lab中写过了：
+   * you should correctly perform split 
+   * if insertion triggers current number of key/value pairs after insertion equals to max_size
    * 
    * gradescope 的scaleTest直接使用INTERNAL_PAGE_SIZE和LEAF_PAGE_SIZE作为max_size
    * PAGE_SIZE的大小在config.h中
@@ -187,7 +191,7 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
    * 而设置比其小的的max_size不会出现这种情况
    * 在命令行中输入$getconf PAGE_SIZE发现大小刚好为4096
   */
-  if(leaf->GetSize()<=leaf->GetMaxSize()){
+  if(leaf->GetSize()<leaf->GetMaxSize()){
     buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), true);
     return true;
   }
@@ -322,7 +326,9 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
   std::cout << "@InsertIntoParent: old_node & new_node's ParentPageID is " << new_node->GetParentPageId() << std::endl;
   std::cout << "@InsertIntoParent: parent_node's PageID is " << parent_node->GetPageId() << std::endl;
   //2.3. deal with split recursively if necessary.
-  if(parent_node->GetSize()>parent_node->GetMaxSize()){
+  // you should correctly perform split 
+  // if insertion triggers current number of key/value pairs after insertion equals to max_size
+  if(parent_node->GetSize()>=parent_node->GetMaxSize()){
     // std::cout << "@InsertIntoParent: parent_node's PageID is " << parent_node->GetPageId() << std::endl;
     InternalPage* new_parent_node = Split(parent_node);
     std::cout << "@InsertIntoParent: new_parent_node's PageID is " << new_parent_node->GetPageId() << std::endl;

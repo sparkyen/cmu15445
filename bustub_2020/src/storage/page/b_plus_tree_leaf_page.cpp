@@ -31,7 +31,7 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, in
   SetPageId(page_id);
   SetParentPageId(parent_id);
   //实际容量为原maxsize-1
-  SetMaxSize(max_size-1);
+  SetMaxSize(max_size);
   //不要漏掉
   SetPageType(IndexPageType::LEAF_PAGE);
   SetSize(0);

@@ -26,7 +26,7 @@ namespace bustub {
  * Then check whether the keys are distributed in separate
  * leaf nodes
  */
-TEST(BPlusTreeTests, DISABLED_SplitTest) {
+TEST(BPlusTreeTests, SplitTest) {
   // create KeyComparator and index schema
   Schema *key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema);
@@ -101,7 +101,7 @@ TEST(BPlusTreeTests, DISABLED_SplitTest) {
  * increasing order. Check whether the key-value pair is valid
  * using GetValue
  */
-TEST(BPlusTreeTests, DISABLED_InsertTest1) {
+TEST(BPlusTreeTests, InsertTest1) {
   // create KeyComparator and index schema
   Schema *key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema);
@@ -154,7 +154,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest1) {
  * a reversed order. Check whether the key-value pair is valid
  * using GetValue
  */
-TEST(BPlusTreeTests, DISABLED_InsertTest2) {
+TEST(BPlusTreeTests, InsertTest2) {
   // create KeyComparator and index schema
   Schema *key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema);

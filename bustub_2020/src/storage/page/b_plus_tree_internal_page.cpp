@@ -31,7 +31,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id
   //不要把 SetParentPageId 写成 SetPageId 
   SetParentPageId(parent_id);
   //实际容量为原maxsize-1
-  SetMaxSize(max_size-1);
+  SetMaxSize(max_size);
   SetPageType(IndexPageType::INTERNAL_PAGE);
   SetSize(0);
 }
