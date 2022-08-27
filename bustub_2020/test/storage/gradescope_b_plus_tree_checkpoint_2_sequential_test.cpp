@@ -71,6 +71,8 @@ TEST(BPlusTreeTests, InsertTest1) {
     EXPECT_EQ(location.GetPageId(), 0);
     EXPECT_EQ(location.GetSlotNum(), current_key);
     current_key = current_key + 1;
+    // Add by sparkyen
+    // std::cout << "@gradescope InsertTest1: now key is " << pair.first << std::endl;
   }
 
   EXPECT_EQ(current_key, keys.size() + 1);
@@ -89,7 +91,7 @@ TEST(BPlusTreeTests, InsertTest1) {
  * Description: The same test that has been run for checkpoint 1
  * but added iterator for value checking
  */
-TEST(BPlusTreeTests, DISABLED_InsertTest2) {
+TEST(BPlusTreeTests, InsertTest2) {
   // create KeyComparator and index schema
   Schema *key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema);
@@ -163,7 +165,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest2) {
  * check the the inserted keys. Then delete a subset of the keys.
  * Finally use the iterator to check the remained keys.
  */
-TEST(BPlusTreeTests, DISABLED_DeleteTest1) {
+TEST(BPlusTreeTests, DeleteTest1) {
   // create KeyComparator and index schema
   std::string createStmt = "a bigint";
   Schema *key_schema = ParseCreateStatement(createStmt);
@@ -261,7 +263,7 @@ TEST(BPlusTreeTests, DISABLED_DeleteTest1) {
  * Description: Similar to DeleteTest2, except that, during the Remove step,
  * a different subset of keys are removed.
  */
-TEST(BPlusTreeTests, DISABLED_DeleteTest2) {
+TEST(BPlusTreeTests, DeleteTest2) {
   // create KeyComparator and index schema
   Schema *key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema);
@@ -359,7 +361,7 @@ TEST(BPlusTreeTests, DISABLED_DeleteTest2) {
  * through the inserted keys. Then remove 9900 inserted keys. Finally, use
  * the iterator to check the correctness of the remaining keys.
  */
-TEST(BPlusTreeTests, DISABLED_ScaleTest) {
+TEST(BPlusTreeTests, ScaleTest) {
   // create KeyComparator and index schema
   Schema *key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema);
@@ -418,6 +420,8 @@ TEST(BPlusTreeTests, DISABLED_ScaleTest) {
   }
   EXPECT_EQ(current_key, keys.size() + 1);
 
+  // tree.Draw(bpm, "tree.dot");
+
   int64_t remove_scale = 9900;
   std::vector<int64_t> remove_keys;
   for (int64_t key = 1; key < remove_scale; key++) {
@@ -427,8 +431,11 @@ TEST(BPlusTreeTests, DISABLED_ScaleTest) {
   // shuffle remove_keys
   std::shuffle(remove_keys.begin(), remove_keys.end(), rng);
   for (auto key : remove_keys) {
+    // std::cout << "@gradescope ScaleTest: key is " << key << endl;
     index_key.SetFromInteger(key);
     tree.Remove(index_key, transaction);
+    // Add by sparkyen
+    // tree.Draw(bpm, "tree.dot");
   }
 
   start_key = remove_scale;
@@ -442,6 +449,10 @@ TEST(BPlusTreeTests, DISABLED_ScaleTest) {
     size = size + 1;
   }
   EXPECT_EQ(size, 100);
+  //Add by sparkyen
+  tree.Draw(bpm, "tree.dot");
+  std::cout << "@gradescope ScaleTest: now size is " << size << std::endl;
+  
 
   remove_keys.clear();
   for (int64_t key = remove_scale; key < scale; key++) {
@@ -452,6 +463,125 @@ TEST(BPlusTreeTests, DISABLED_ScaleTest) {
     tree.Remove(index_key, transaction);
   }
   EXPECT_EQ(true, tree.IsEmpty());
+  // tree.Draw(bpm, "tree.dot");
+
+  bpm->UnpinPage(HEADER_PAGE_ID, true);
+  delete key_schema;
+  delete transaction;
+  delete disk_manager;
+  delete bpm;
+  remove("test.db");
+  remove("test.log");
+}
+
+/*
+ * Add by sparkyen
+ * 
+ */
+
+TEST(BPlusTreeTests, DISABLED_SimpleScaleTest) {
+  // create KeyComparator and index schema
+  Schema *key_schema = ParseCreateStatement("a bigint");
+  GenericComparator<8> comparator(key_schema);
+
+  DiskManager *disk_manager = new DiskManager("test.db");
+  BufferPoolManager *bpm = new BufferPoolManager(10, disk_manager);
+  // create b+ tree
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 20, 30);
+  GenericKey<8> index_key;
+  RID rid;
+  // create transaction
+  Transaction *transaction = new Transaction(0);
+  // create and fetch header_page
+  page_id_t page_id;
+  auto header_page = bpm->NewPage(&page_id);
+  (void)header_page;
+
+  int64_t scale = 40;
+  std::vector<int64_t> keys;
+  for (int64_t key = 1; key < scale; key++) {
+    keys.push_back(key);
+  }
+
+  // shuffle keys
+  // std::random_shuffle(keys.begin(), keys.end());
+  // NOTE: 'std::random_shuffle' has been removed in C++17; use 'std::shuffle' instead
+  // std::shuffle(keys.begin(), keys.end(), std::mt19937(std::random_device()));
+  auto rng = std::default_random_engine{};
+  std::shuffle(keys.begin(), keys.end(), rng);
+  for (auto key : keys) {
+    int64_t value = key & 0xFFFFFFFF;
+    rid.Set(static_cast<int32_t>(key >> 32), value);
+    index_key.SetFromInteger(key);
+    tree.Insert(index_key, rid, transaction);
+  }
+  std::vector<RID> rids;
+  for (auto key : keys) {
+    rids.clear();
+    index_key.SetFromInteger(key);
+    tree.GetValue(index_key, &rids);
+    EXPECT_EQ(rids.size(), 1);
+
+    int64_t value = key & 0xFFFFFFFF;
+    EXPECT_EQ(rids[0].GetSlotNum(), value);
+  }
+
+  int64_t start_key = 1;
+  int64_t current_key = start_key;
+  // for (auto pair : tree) {
+  //   (void)pair;
+  //   current_key = current_key + 1;
+  // }
+  index_key.SetFromInteger(start_key);
+  for (auto iterator = tree.Begin(index_key); !iterator.isEnd(); ++iterator) {
+    current_key = current_key + 1;
+  }
+  EXPECT_EQ(current_key, keys.size() + 1);
+
+  tree.Draw(bpm, "tree.dot");
+
+  int64_t remove_scale = 37;
+  std::vector<int64_t> remove_keys;
+  for (int64_t key = 1; key < remove_scale; key++) {
+    remove_keys.push_back(key);
+  }
+
+  int cnt = 0;
+  // shuffle remove_keys
+  std::shuffle(remove_keys.begin(), remove_keys.end(), rng);
+  for (auto key : remove_keys) {
+    index_key.SetFromInteger(key);
+    tree.Remove(index_key, transaction);
+    // Add by sparkyen
+    tree.Draw(bpm, "tmp/tree"+to_string(cnt++)+".dot");
+    // Add by sparkyen
+    // tree.Draw(bpm, "tree.dot");
+  }
+
+  start_key = remove_scale;
+  int64_t size = 0;
+  // for (auto pair : tree) {
+  //   (void)pair;
+  //   size = size + 1;
+  // }
+  index_key.SetFromInteger(start_key);
+  for (auto iterator = tree.Begin(index_key); !iterator.isEnd(); ++iterator) {
+    size = size + 1;
+  }
+  EXPECT_EQ(size, 3);
+
+  remove_keys.clear();
+  for (int64_t key = remove_scale; key < scale; key++) {
+    remove_keys.push_back(key);
+  }
+  
+  for (auto key : remove_keys) {
+    index_key.SetFromInteger(key);
+    tree.Remove(index_key, transaction);
+    
+  }
+  EXPECT_EQ(true, tree.IsEmpty());
+  tree.Draw(bpm, "tree.dot");
 
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete key_schema;
@@ -470,7 +600,7 @@ TEST(BPlusTreeTests, DISABLED_ScaleTest) {
  * Check all the keys get are the same set of keys as previously
  * inserted.
  */
-TEST(BPlusTreeTests, DISABLED_SequentialMixTest) {
+TEST(BPlusTreeTests, SequentialMixTest) {
   // create KeyComparator and index schema
   Schema *key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema);

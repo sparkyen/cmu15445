@@ -73,9 +73,9 @@ class BPlusTree {
       // Print data of the node
       out << "label=<<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\">\n";
       // Print data
-      out << "<TR><TD COLSPAN=\"" << 1 << "\">P=INVALID_PAGE_ID" << "</TD></TR>\n";
-      out << "<TR><TD COLSPAN=\"" << 1 << "\">"
-          << "max_size=" << leaf_max_size_-1 << "(leaf)/" << internal_max_size_-1 << "(internal)"
+      out << "<TR><TD COLSPAN=\"" << 0 << "\">P=INVALID_PAGE_ID" << "</TD></TR>\n";
+      out << "<TR><TD COLSPAN=\"" << 0 << "\">"
+          << "max_size=" << leaf_max_size_ << "(leaf)/" << internal_max_size_ << "(internal)"
           << ",min_size=" << (leaf_max_size_)/2 << "/" << (internal_max_size_)/2
           << "</TD></TR>\n";
       out << "<TR>";

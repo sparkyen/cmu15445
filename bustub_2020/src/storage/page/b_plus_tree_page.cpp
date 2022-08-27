@@ -60,6 +60,9 @@ void BPlusTreePage::SetMaxSize(int size) {
  * With n = 4 in our example B+-tree, each leaf must contain at least 2 values, and at most 3 values.
  */
 int BPlusTreePage::GetMinSize() const { 
+    //若考虑根节点的特殊情况，AdjustRoot()和Coalesce的实现会更加优美
+    //ref: https://gist.github.com/Zrealshadow/b6c4fee458881cc8d5796ff719f9b650
+    
     //需要向上取整, 但是实际容量为max_size-1，便不需要+1了
     return (max_size_)/2;
 }

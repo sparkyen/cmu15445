@@ -196,6 +196,9 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveAllTo(BPlusTreeLeafPage *recipient) {
   recipient->CopyNFrom(array, GetSize());
   //update the next_page id in the sibling page
   //不要忘记叶子节点需要更新下一节点的信息
+  std::cout << "Leaf's MoveAllTo: change " 
+  << recipient->GetPageId() << "->" << recipient->GetNextPageId() << "->" << GetNextPageId()
+  << " to " << recipient->GetPageId() << "->" << GetNextPageId() << endl;
   recipient->SetNextPageId(GetNextPageId());
 }
 
@@ -208,6 +211,9 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveAllTo(BPlusTreeLeafPage *recipient) {
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveFirstToEndOf(BPlusTreeLeafPage *recipient) {
   recipient->CopyLastFrom(array[0]);
+  //不要忘记自身的元素要往后挪动
+  //但是上面那条语句要先执行，否则逻辑顺序是错误的
+  std::move(array+1, array+GetSize(), array);
   IncreaseSize(-1);
 }
 
@@ -234,7 +240,10 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveLastToFrontOf(BPlusTreeLeafPage *recipient)
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyFirstFrom(const MappingType &item) {
-  for(int i = 1; i <= GetSize(); i++){
+  //正着往后挪是错误的
+  //例如 14 15 16 19 21 就会变成 new_item 14 14 14 14 14 
+  //需要倒着挪动
+  for(int i = GetSize(); i >= 1; i--){
     array[i] = array[i-1];
   }
   array[0] = item;

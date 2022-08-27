@@ -153,7 +153,8 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
     }
     std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
   }
-  std::cout << "@BufferPool with PageID " << INVALID_PAGE_ID << " * " << invalid_num <<std::endl;
+  if(invalid_num!=0)
+    std::cout << "@BufferPool with PageID " << INVALID_PAGE_ID << " * " << invalid_num <<std::endl;
   std::cout << "------------------------------------" << std::endl;
   std::cout << "@InsertIntoLeaf: leaf's PageID is " << leaf->GetPageId() << std::endl;
 
@@ -351,7 +352,7 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
-  std::cout << "@Remove: " << key.ToString() << std::endl;
+  std::cout << "@Remove: Begin to remove " << key.ToString() << std::endl;
   //1. find the right leaf page as deletion target
   Page* leaf_page = FindLeafPage(key);
   //1.1 If current tree is empty / couldn't find target, return immdiately.
@@ -359,7 +360,11 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
   //2. delete entry from leaf page
   LeafPage* leaf = reinterpret_cast<LeafPage *>(leaf_page->GetData());
   int now_size = leaf->GetSize();
-  if(now_size==leaf->RemoveAndDeleteRecord(key, comparator_)) return;
+  if(now_size==leaf->RemoveAndDeleteRecord(key, comparator_)) {
+    //千万不要忘记unpin否则会导致bufferpool可用空间越来越少，最后导致无法进行磁盘读取
+    buffer_pool_manager_->UnpinPage(leaf->GetPageId(), false);
+    return;
+  }
   //2.1 deal with redistribute or merge if necessary.
   if(leaf->GetSize()<leaf->GetMinSize()){
     std::cout << "@Remove: [leaf " << leaf->GetPageId() <<
@@ -383,9 +388,9 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
 INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
 bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
+  std::cout << "@CoalesceOrRedistribute: node is RootPage? " << node->IsRootPage() << std::endl;
   //0. 该节点是根节点
   if(node->IsRootPage()){
-    std::cout << "@CoalesceOrRedistribute: node is RootPage? " << node->IsRootPage() << std::endl;
     //调整根节点，根节点可以不是半满
     return AdjustRoot(node);
   } 
@@ -393,35 +398,70 @@ bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
   Page* parent_page = buffer_pool_manager_->FetchPage(node->GetParentPageId());
   InternalPage* parent = reinterpret_cast<InternalPage *>(parent_page->GetData());
   int node_index = parent->ValueIndex(node->GetPageId());
+  int origin_index = node_index;
   //2. 通过parent找到prev_node并将node合并到prev_node中
+  /* 
+   * 以下情况起码针对删除操作来说，插入暂时不计：
+   * 
+   * 其实还有种特殊的情况在测试中发现了，就是删除节点的父节点只有一个指针,
+   * 这样会导致找不到合并/重新分配的对象，
+   * 得到的结果不正确, 生成的.dot图要么奇怪，要么报错。
+   * 于是有以下猜想：
+   * 1. 这门课没有考虑这种情况，无法进行这种操作。经过网上搜索发现发现大家的代码都不能进行此操作，
+   *    而且其他博文讲解B+树的操作种也均未提及此种情况
+   * 2. 这迫使我思考，是不是因为这种情况本身就不合理，不会出现这种情况，
+   *    当然也就不会在这种情况下进行删除操作。
+   * 
+   * 经过思考过后发现第2种想法是对的, 我们希望minSize能够>=2，而不是简单的capacity>=2即可(root至少含有2个指针)
+   * 例如 3(leaf) 3(internal)就满足internal实际容量为2满足capacity>=2, 但是minSize却=1
+   * 这样会导致Split的时候左边节点只分到1个指针
+   * 
+   * 这样做的原因个人认为：在于一个内结点只是指向一个元素不能很好起到索引的作用，非常浪费空间
+   * 至少有两个指针才显得这个内节点有意义，当然根节点除外
+   * 这样就要满足capacity>=3
+   * 
+   * 另外由于根节点指针个数>=2，则内节点至少capacity>=2
+   * 
+  */
   //2.1 假如node为parent最左的儿子，则将往右边移一个
+  std::cout << "@CoalesceOrRedistribute: node is "  
+  << node->GetPageId() << " in parent " << node->GetParentPageId() 
+  << " with index " << node_index << std::endl;
   N* prev_node;
   if(node_index==0) {
     node_index = 1;
     Page* prev_page = buffer_pool_manager_->FetchPage(parent->ValueAt(1));
     prev_node = reinterpret_cast<N *>(prev_page->GetData());
+    //不需要担心原始node_index==0的情况，swap交换的是存储的地址
+    //ref: https://blog.csdn.net/iwts_24/article/details/79487501
     std::swap(node, prev_node);
   }
   //2.2 否则直接取出prev_node
   else {
+    std::cout << "@CoalesceOrRedistribute: this line run " << parent->ValueAt(node_index-1) << std::endl;
     Page* prev_page = buffer_pool_manager_->FetchPage(parent->ValueAt(node_index-1));
+    std::cout << "@CoalesceOrRedistribute: pre_page's ID is  " << prev_page->GetPageId() << std::endl;
     prev_node = reinterpret_cast<N *>(prev_page->GetData());
+    std::cout << "@CoalesceOrRedistribute: prev_node is " << prev_node->GetPageId() << std::endl;
   }
   // std::cout << "@CoalesceOrRedistribute: node_index in [parent " << parent->GetPageId() << 
   // "] is " << node_index << std::endl;
   //3.1 若node中的值能够放入prev_node中则合并
+  //这里是 < 而不是 <=
   //node会被删除
-  if(node->GetSize()+prev_node->GetSize()<=node->GetMaxSize()){
+  if(node->GetSize()+prev_node->GetSize()<node->GetMaxSize()){
     Coalesce(&prev_node, &node, &parent, node_index, transaction);
     buffer_pool_manager_->UnpinPage(parent->GetPageId(), true);
+    //不需要担心原始node_index==0的情况，swap交换的是存储的地址
     buffer_pool_manager_->UnpinPage(prev_node->GetPageId(), true);
     //node should be deleted
     return true;
   }
   // 3.2 否则重新分配
-  Redistribute(prev_node, node, node_index);
   //Redistribute情况下parent无信息改动
   buffer_pool_manager_->UnpinPage(parent->GetPageId(), false);
+  Redistribute(prev_node, node, node_index);
+  //不需要担心原始node_index==0的情况，swap交换的是存储的地址
   buffer_pool_manager_->UnpinPage(prev_node->GetPageId(), true);
   return false;
 }
@@ -467,6 +507,8 @@ bool BPLUSTREE_TYPE::Coalesce(N **neighbor_node, N **node,
   std::cout << "@Coalesce: parent's size is " << (*parent)->GetSize() << std::endl;
   //deal with coalesce or redistribute recursively if necessary.
   //需要特别考虑(*parent)为根节点的情况, 其至少需要有两个指针才能存在
+  //或者在GetMinSize()编写关于RootPage的代码
+  // ref: https://gist.github.com/Zrealshadow/b6c4fee458881cc8d5796ff719f9b650
   if((*parent)->GetSize()>=(*parent)->GetMinSize() && !(*parent)->IsRootPage()){
     //parent node no deletion
     return false;
@@ -574,7 +616,12 @@ bool BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_node) {
  * @return : index iterator
  */
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE BPLUSTREE_TYPE::begin() { return INDEXITERATOR_TYPE(); }
+INDEXITERATOR_TYPE BPLUSTREE_TYPE::begin() { 
+  //使用KeyType构造函数
+  Page* left_leaf_page = FindLeafPage(KeyType(), true);
+  LeafPage* leaf = reinterpret_cast<LeafPage *>(left_leaf_page->GetData());
+  return INDEXITERATOR_TYPE(buffer_pool_manager_, leaf, 0); 
+}
 
 /*
  * Input parameter is low key, find the leaf page that contains the input key
@@ -582,7 +629,12 @@ INDEXITERATOR_TYPE BPLUSTREE_TYPE::begin() { return INDEXITERATOR_TYPE(); }
  * @return : index iterator
  */
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE BPLUSTREE_TYPE::Begin(const KeyType &key) { return INDEXITERATOR_TYPE(); }
+INDEXITERATOR_TYPE BPLUSTREE_TYPE::Begin(const KeyType &key) { 
+  Page* leaf_page = FindLeafPage(key);
+  LeafPage* leaf = reinterpret_cast<LeafPage *>(leaf_page->GetData());
+  int idx = leaf->KeyIndex(key, comparator_);
+  return INDEXITERATOR_TYPE(buffer_pool_manager_, leaf, idx); 
+}
 
 /*
  * Input parameter is void, construct an index iterator representing the end
@@ -590,7 +642,17 @@ INDEXITERATOR_TYPE BPLUSTREE_TYPE::Begin(const KeyType &key) { return INDEXITERA
  * @return : index iterator
  */
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE BPLUSTREE_TYPE::end() { return INDEXITERATOR_TYPE(); }
+INDEXITERATOR_TYPE BPLUSTREE_TYPE::end() { 
+  Page* leaf_page = FindLeafPage(KeyType(), true);
+  LeafPage* leaf = reinterpret_cast<LeafPage *>(leaf_page->GetData());
+  while(leaf->GetNextPageId()!=INVALID_PAGE_ID){
+    leaf_page = buffer_pool_manager_->FetchPage(leaf->GetNextPageId());
+    buffer_pool_manager_->UnpinPage(leaf->GetPageId(), false);
+    leaf = reinterpret_cast<LeafPage *>(leaf_page->GetData());
+  }
+  //end返回的idx是最后的一个有效元素的下一个位置
+  return INDEXITERATOR_TYPE(buffer_pool_manager_, leaf, leaf->GetSize()); 
+}
 
 /*****************************************************************************
  * UTILITIES AND DEBUG
@@ -630,6 +692,7 @@ Page *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool leftMost) {
     origin_page = buffer_pool_manager_->FetchPage(parent_page_id);
     tree_page = reinterpret_cast<BPlusTreePage *>(origin_page->GetData());
   }
+  //这里不能unpin origin_page，因为要返回对应的page使用
   return origin_page;
 }
 
