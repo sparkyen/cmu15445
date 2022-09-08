@@ -168,13 +168,9 @@ bool B_PLUS_TREE_LEAF_PAGE_TYPE::Lookup(const KeyType &key, ValueType *value, co
  */
 INDEX_TEMPLATE_ARGUMENTS
 int B_PLUS_TREE_LEAF_PAGE_TYPE::RemoveAndDeleteRecord(const KeyType &key, const KeyComparator &comparator) { 
-  
   // look through leaf page to see whether delete key exist or not
   // If not exist, return immediately
-  if(KeyIndex(key, comparator)==-1) {
-    std::cout << "@RemoveAndDeleteRecord: not found " << key << std::endl;
-    return GetSize();
-  }
+  if(KeyIndex(key, comparator)==-1) return GetSize();
   // perform deletion
   int pos, num_size = GetSize();
   for(int i = 0; i < num_size; i++){

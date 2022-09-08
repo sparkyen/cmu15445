@@ -42,16 +42,16 @@ Page *BufferPoolManager::FetchPageImpl(page_id_t page_id) {
   // 2.     If R is dirty, write it back to the disk.
   // 3.     Delete R from the page table and insert P.
   // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
-  // std::cout << "@BufferPoolManger FetchPageImpl: fetch BEGIN 1" << std::endl;
+  std::cout << "@BufferPoolManger FetchPageImpl: fetch BEGIN 1" << std::endl;
   if(page_table_.find(page_id)!=page_table_.end()) {
-    // std::cout << "@BufferPoolManger FetchPageImpl: fetch BEGIN 2" << std::endl;
+    std::cout << "@BufferPoolManger FetchPageImpl: fetch BEGIN 2" << std::endl;
     frame_id_t frame_id = page_table_[page_id];
     Page* page = &pages_[frame_id];
     page->pin_count_ += 1;
     //Pin(T) should be called after a page is pinned to a frame in the BufferPoolManager
     if(page->pin_count_==1) replacer_->Pin(frame_id);
     //DEBUG
-    // std::cout << "@BufferPoolManger FetchPageImpl: fetch DONE" << std::endl;
+    std::cout << "@BufferPoolManger FetchPageImpl: fetch DONE" << std::endl;
     return page;
   }
   if (free_list_.empty() && replacer_->Size() == 0)  {
