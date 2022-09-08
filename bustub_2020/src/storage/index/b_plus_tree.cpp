@@ -32,8 +32,6 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, BufferPoolManager *buffer_pool_manag
  */
 INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::IsEmpty() const { 
-  //不要忘记实现了这个函数哦
-  //顺便说一句可能打完球回来就发现问题了
   return root_page_id_==INVALID_PAGE_ID; 
 }
 /*****************************************************************************
@@ -46,7 +44,6 @@ bool BPLUSTREE_TYPE::IsEmpty() const {
  */
 INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) {
-  //不需要写一长串递归寻找，可以复用FindLeafPage()
   Page* leaf_page = FindLeafPage(key);
   std::cout << "@GetValue: FindLeafPage DONE" << std::endl;
   LeafPage* leaf = reinterpret_cast<LeafPage *>(leaf_page->GetData());
@@ -54,6 +51,7 @@ bool BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   ValueType tmpValue;
   bool existed = leaf->Lookup(key, &tmpValue, comparator_);
   buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), false);
+  std::cout << "@GetValue: pinCount is " << leaf_page->GetPinCount() << std::endl;
 
   if(!existed) return false;
 
@@ -73,8 +71,6 @@ bool BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
  */
 INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *transaction) { 
-  //使用LOG_DEBUG前面会附加上 2022-08-17 20:44:10 [home/sean/cmu15445/bustub_2020/src/storage/index/b_plus_tree.cpp:75:Insert]
-  // LOG_DEBUG("@Insert: Begin to Insert\n");
   std::cout << "\n@Insert: Begin to Insert" << std::endl;
   if(IsEmpty()){
     StartNewTree(key, value);
@@ -109,6 +105,8 @@ void BPLUSTREE_TYPE::StartNewTree(const KeyType &key, const ValueType &value) {
   UpdateRootPageId(true);
 
   buffer_pool_manager_->UnpinPage(root_page_id_, true);
+  std::cout << "@StartNewTree: pinCount is " << page->GetPinCount() << std::endl;
+  
 }
 
 /*
@@ -136,64 +134,15 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
   //if user try to insert duplicate keys return false
   if(leaf->Lookup(key, &tmpValue, comparator_)){
     buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), false);
-
+    std::cout << "@Insert: pinCount is "<< leaf_page->GetPinCount() << std::endl;
     return false;
   }
   //2.2  otherwise insert entry
   leaf->Insert(key, value, comparator_);
-  //DEBUG
-  std::cout << "------------------------------------" << std::endl;
-  int invalid_num = 0;
-  std::cout << "@BufferPool After Insert" << std::endl;
-  for(size_t i = 0; i < buffer_pool_manager_->GetPoolSize(); i++){
-    Page* page = &((buffer_pool_manager_->GetPages())[i]);
-    if(page->GetPageId()==INVALID_PAGE_ID) {
-      invalid_num++;
-      continue;
-    }
-    std::cout << "@BufferPool with PageID " << page->GetPageId() << std::endl;
-  }
-  if(invalid_num!=0)
-    std::cout << "@BufferPool with PageID " << INVALID_PAGE_ID << " * " << invalid_num <<std::endl;
-  std::cout << "------------------------------------" << std::endl;
   std::cout << "@InsertIntoLeaf: leaf's PageID is " << leaf->GetPageId() << std::endl;
-
-  /*
-   * NOTE: 一个节点真正能够存储的节点数目其实是max_size-1
-   * 前面在b_plus_tree_page这个类里面，我们看到了一个叫做max_size的属性，
-   * 但是按照课本上面的说法，一个节点真正能够存储的节点数目其实是max_size-1，
-   * 最后一个数组项充当一个哨兵的作用。之所以这样做是因为可以方便我们分裂的处理，
-   * 比如我们这个page的元素数量已经是max_size-1了，然后再插入一个，把新插入的存到我们的page里面，
-   * 插入完成之后我们检查发现，这个page的size等于max_size，那么我们就可以直接把这个page传给一个split函数，
-   * 让它进行分裂就好了。
-   * 如果最后一个不充当哨兵的话，那么就会存在再插入的时候这个page已经放不下的情况，能处理，但相对没那么优雅。
-   * ref: https://zhuanlan.zhihu.com/p/382244184
-   * 
-   * 并且个人觉得让设定好的数据结构直接溢出是件很危险的事，一开始不理解为什么都这么危险还可以这么做
-   * 原来只是保存max_size-1的值，否则也像我实验中为了找出bug，不断地打印buffer_pool中的page_id
-   * 发现page_id很异常，有的信息不是不断地被替换，而是越来越多的page_id变为0，
-   * 最后直接无法运行，直接终止了，可能就是因为溢出的问题
-   * 
-   * 
-   * 也可以在初始化时直接将max_size设置为max_size-1
-   * 为了实现插入 如果发现满了，然后分裂。
-   * 如果不留这个空间，后续分裂代码的逻辑会十分复杂。算是一个简化代码复杂度的哨兵吧。
-   * ref: https://www.jianshu.com/p/628a39d03b79
-   * 
-   * 最后选择采用在初始化时的做法，这样显得其他代码逻辑更加清晰
-   * 但是后来发现这样过不了测试，于是还是使用<
-   * 原因是其实lab中写过了：
-   * you should correctly perform split 
-   * if insertion triggers current number of key/value pairs after insertion equals to max_size
-   * 
-   * gradescope 的scaleTest直接使用INTERNAL_PAGE_SIZE和LEAF_PAGE_SIZE作为max_size
-   * PAGE_SIZE的大小在config.h中
-   * 经过测试发现在这种情况下Insert溢出会导致原本buffer_pool中对应的PageID会变为0
-   * 而设置比其小的的max_size不会出现这种情况
-   * 在命令行中输入$getconf PAGE_SIZE发现大小刚好为4096
-  */
   if(leaf->GetSize()<leaf->GetMaxSize()){
     buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), true);
+    std::cout << "@Insert: pinCount is "<< leaf_page->GetPinCount() << std::endl;
     return true;
   }
   //2.2.1 split if necessary
@@ -216,6 +165,7 @@ bool BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value, 
   //3. 使用完后记得取消对页面的引用
   buffer_pool_manager_->UnpinPage(leaf->GetPageId(), true);
   buffer_pool_manager_->UnpinPage(new_leaf->GetPageId(), true);
+  std::cout << "@Insert: pinCount is "<< leaf_page->GetPinCount() << std::endl;
   return true;
 }
 
@@ -311,7 +261,6 @@ void BPLUSTREE_TYPE::InsertIntoParent(BPlusTreePage *old_node, const KeyType &ke
     //调用InsertIntoParent()的上层函数会负责
     buffer_pool_manager_->UnpinPage(root_page_id_, true);
     
-
     return;
   }
 
@@ -355,26 +304,32 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
   std::cout << "@Remove: Begin to remove " << key.ToString() << std::endl;
   //1. find the right leaf page as deletion target
   Page* leaf_page = FindLeafPage(key);
+  std::cout << "@Remove: $ pinCount is "<< leaf_page->GetPinCount() << std::endl;
   //1.1 If current tree is empty / couldn't find target, return immdiately.
   if(leaf_page==nullptr) return;
   //2. delete entry from leaf page
   LeafPage* leaf = reinterpret_cast<LeafPage *>(leaf_page->GetData());
   int now_size = leaf->GetSize();
   if(now_size==leaf->RemoveAndDeleteRecord(key, comparator_)) {
-    //千万不要忘记unpin否则会导致bufferpool可用空间越来越少，最后导致无法进行磁盘读取
     buffer_pool_manager_->UnpinPage(leaf->GetPageId(), false);
     return;
   }
+
+  bool leaf_should_delete = false;
   //2.1 deal with redistribute or merge if necessary.
   if(leaf->GetSize()<leaf->GetMinSize()){
-    std::cout << "@Remove: [leaf " << leaf->GetPageId() <<
-    "] size is " << leaf->GetSize() << std::endl;
-    CoalesceOrRedistribute(leaf, transaction);
+    std::cout << "@Remove: [leaf " << leaf->GetPageId() 
+    << "] size is " << leaf->GetSize() << std::endl;
+    leaf_should_delete = CoalesceOrRedistribute(leaf, transaction);
   }
-  //这里要分情况：leaf可能被删掉也可能没有
-  //由于Unpin中加入了判断该page是否在buffer_pool的逻辑
-  //因此不需要递归到CoalesceOrRedistribute执行Unpin
-  buffer_pool_manager_->UnpinPage(leaf->GetPageId(), true);
+
+  std::cout << "@Remove: $$ pinCount is "<< leaf_page->GetPinCount() << std::endl;
+  buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), true);
+  if(leaf_should_delete){
+    std::cout << "@Remove: pinCount is "<< leaf_page->GetPinCount() << std::endl;
+    assert(buffer_pool_manager_->DeletePage(leaf_page->GetPageId()));
+  }
+    
   return;
 }
 
@@ -392,68 +347,43 @@ bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
   //0. 该节点是根节点
   if(node->IsRootPage()){
     //调整根节点，根节点可以不是半满
-    return AdjustRoot(node);
+    bool root_should_delete = AdjustRoot(node);
+    return root_should_delete;
   } 
   //1. 获取当前node的parent
   Page* parent_page = buffer_pool_manager_->FetchPage(node->GetParentPageId());
   InternalPage* parent = reinterpret_cast<InternalPage *>(parent_page->GetData());
   int node_index = parent->ValueIndex(node->GetPageId());
-  int origin_index = node_index;
-  //2. 通过parent找到prev_node并将node合并到prev_node中
-  /* 
-   * 以下情况起码针对删除操作来说，插入暂时不计：
-   * 
-   * 其实还有种特殊的情况在测试中发现了，就是删除节点的父节点只有一个指针,
-   * 这样会导致找不到合并/重新分配的对象，
-   * 得到的结果不正确, 生成的.dot图要么奇怪，要么报错。
-   * 于是有以下猜想：
-   * 1. 这门课没有考虑这种情况，无法进行这种操作。经过网上搜索发现发现大家的代码都不能进行此操作，
-   *    而且其他博文讲解B+树的操作种也均未提及此种情况
-   * 2. 这迫使我思考，是不是因为这种情况本身就不合理，不会出现这种情况，
-   *    当然也就不会在这种情况下进行删除操作。
-   * 
-   * 经过思考过后发现第2种想法是对的, 我们希望minSize能够>=2，而不是简单的capacity>=2即可(root至少含有2个指针)
-   * 例如 3(leaf) 3(internal)就满足internal实际容量为2满足capacity>=2, 但是minSize却=1
-   * 这样会导致Split的时候左边节点只分到1个指针
-   * 
-   * 这样做的原因个人认为：在于一个内结点只是指向一个元素不能很好起到索引的作用，非常浪费空间
-   * 至少有两个指针才显得这个内节点有意义，当然根节点除外
-   * 这样就要满足capacity>=3
-   * 
-   * 另外由于根节点指针个数>=2，则内节点至少capacity>=2
-   * 
-  */
   //2.1 假如node为parent最左的儿子，则将往右边移一个
   std::cout << "@CoalesceOrRedistribute: node is "  
   << node->GetPageId() << " in parent " << node->GetParentPageId() 
   << " with index " << node_index << std::endl;
   N* prev_node;
+  Page* prev_page;
   if(node_index==0) {
     node_index = 1;
-    Page* prev_page = buffer_pool_manager_->FetchPage(parent->ValueAt(1));
+    prev_page = buffer_pool_manager_->FetchPage(parent->ValueAt(1));
     prev_node = reinterpret_cast<N *>(prev_page->GetData());
-    //不需要担心原始node_index==0的情况，swap交换的是存储的地址
-    //ref: https://blog.csdn.net/iwts_24/article/details/79487501
     std::swap(node, prev_node);
   }
   //2.2 否则直接取出prev_node
   else {
     std::cout << "@CoalesceOrRedistribute: this line run " << parent->ValueAt(node_index-1) << std::endl;
-    Page* prev_page = buffer_pool_manager_->FetchPage(parent->ValueAt(node_index-1));
+    prev_page = buffer_pool_manager_->FetchPage(parent->ValueAt(node_index-1));
     std::cout << "@CoalesceOrRedistribute: pre_page's ID is  " << prev_page->GetPageId() << std::endl;
     prev_node = reinterpret_cast<N *>(prev_page->GetData());
     std::cout << "@CoalesceOrRedistribute: prev_node is " << prev_node->GetPageId() << std::endl;
   }
-  // std::cout << "@CoalesceOrRedistribute: node_index in [parent " << parent->GetPageId() << 
-  // "] is " << node_index << std::endl;
   //3.1 若node中的值能够放入prev_node中则合并
   //这里是 < 而不是 <=
   //node会被删除
   if(node->GetSize()+prev_node->GetSize()<node->GetMaxSize()){
-    Coalesce(&prev_node, &node, &parent, node_index, transaction);
+    bool parent_should_delete = Coalesce(&prev_node, &node, &parent, node_index, transaction);
     buffer_pool_manager_->UnpinPage(parent->GetPageId(), true);
-    //不需要担心原始node_index==0的情况，swap交换的是存储的地址
-    buffer_pool_manager_->UnpinPage(prev_node->GetPageId(), true);
+    if(parent_should_delete) //delete this page
+      assert(buffer_pool_manager_->DeletePage(parent->GetPageId()));
+    //这里是prev_page而不是prev_node
+    buffer_pool_manager_->UnpinPage(prev_page->GetPageId(), true);
     //node should be deleted
     return true;
   }
@@ -461,8 +391,7 @@ bool BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node, Transaction *transaction) {
   //Redistribute情况下parent无信息改动
   buffer_pool_manager_->UnpinPage(parent->GetPageId(), false);
   Redistribute(prev_node, node, node_index);
-  //不需要担心原始node_index==0的情况，swap交换的是存储的地址
-  buffer_pool_manager_->UnpinPage(prev_node->GetPageId(), true);
+  buffer_pool_manager_->UnpinPage(prev_page->GetPageId(), true);
   return false;
 }
 
@@ -486,7 +415,6 @@ bool BPLUSTREE_TYPE::Coalesce(N **neighbor_node, N **node,
   std::cout << "@Coalesce: from node " << (*node)->GetPageId() << 
   " to prev_node " << (*neighbor_node)->GetPageId() << std::endl;
   if((*node)->IsLeafPage()){
-    //要注意对象的类型转化
     LeafPage* leaf = reinterpret_cast<LeafPage *>(*node);
     LeafPage* prev_leaf = reinterpret_cast<LeafPage *>(*neighbor_node);
     //下一个节点的信息会在MoveAllTo中更新
@@ -501,8 +429,6 @@ bool BPLUSTREE_TYPE::Coalesce(N **neighbor_node, N **node,
   }
   //更新parent中的信息
   (*parent)->Remove(index);
-  //delete this page
-  buffer_pool_manager_->DeletePage((*node)->GetPageId());
 
   std::cout << "@Coalesce: parent's size is " << (*parent)->GetSize() << std::endl;
   //deal with coalesce or redistribute recursively if necessary.
@@ -592,7 +518,6 @@ bool BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_node) {
     root->SetParentPageId(INVALID_PAGE_ID);
     buffer_pool_manager_->UnpinPage(root_page_id_, true);
     std::cout << "@AdjustRoot: root goes down to node " << root_page_id_ << endl;
-    buffer_pool_manager_->DeletePage(old_root_node->GetPageId());
     //root page should be deleted
     return true;
   }
@@ -600,7 +525,6 @@ bool BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_node) {
   else if(old_root_node->GetSize()==0){
     root_page_id_ = INVALID_PAGE_ID;
     UpdateRootPageId(false);
-    buffer_pool_manager_->DeletePage(old_root_node->GetPageId());
     return true; 
   }
   //no deletion
@@ -669,6 +593,7 @@ Page *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool leftMost) {
   if(IsEmpty()) return nullptr;
   //从根节点开始出发，
   Page* origin_page = buffer_pool_manager_->FetchPage(root_page_id_);
+  std::cout << "@FindLeafPage: $ pinCount is "<< origin_page->GetPinCount() << std::endl;
   assert(origin_page!=nullptr);
   //直到找到目标leafPage
   /*
@@ -693,6 +618,7 @@ Page *BPLUSTREE_TYPE::FindLeafPage(const KeyType &key, bool leftMost) {
     tree_page = reinterpret_cast<BPlusTreePage *>(origin_page->GetData());
   }
   //这里不能unpin origin_page，因为要返回对应的page使用
+  std::cout << "@FindLeafPage: $$ pinCount is "<< origin_page->GetPinCount() << std::endl;
   return origin_page;
 }
 

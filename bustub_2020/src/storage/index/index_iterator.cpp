@@ -16,7 +16,12 @@ INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *bpm, LeafPage *leaf, int id
     :buffer_pool_manager_(bpm), leaf(leaf), idx(idx) {}
 
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::~IndexIterator() = default;
+INDEXITERATOR_TYPE::~IndexIterator() {
+    //一定记得Unpin，因为在Iterator使用过程中一直会有一个标记位
+    //但是当Iterator结束时若不取消标记，会影响BPlusTree中的操作，如DeletePage
+    //找了2个多小时
+    buffer_pool_manager_->UnpinPage(leaf->GetPageId(), false);
+}
 
 INDEX_TEMPLATE_ARGUMENTS
 bool INDEXITERATOR_TYPE::isEnd() { 
