@@ -13,6 +13,7 @@
 #include <queue>
 #include <string>
 #include <vector>
+#include <thread>     
 
 #include "concurrency/transaction.h"
 #include "storage/index/index_iterator.h"
@@ -22,6 +23,7 @@
 namespace bustub {
 
 #define BPLUSTREE_TYPE BPlusTree<KeyType, ValueType, KeyComparator>
+enum class OpType { FIND = 0, INSERT, DELETE };
 
 /**
  * Main class providing the API for the Interactive B+ Tree.
@@ -96,6 +98,10 @@ class BPlusTree {
   void RemoveFromFile(const std::string &file_name, Transaction *transaction = nullptr);
   // expose for test purpose
   Page *FindLeafPage(const KeyType &key, bool leftMost = false);
+  Page *FindLeafPageRW(const KeyType &key, enum OpType op, Transaction *transaction=nullptr, bool left_most=false);
+  void UnlatchAndUnpin(enum OpType op, Transaction *transaction);
+  template <typename N>
+  bool IsSafe(N *node, enum OpType op);
 
  private:
   void StartNewTree(const KeyType &key, const ValueType &value);
@@ -134,6 +140,20 @@ class BPlusTree {
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;
+
+  /*
+  One of the corner case is that when insert and delete, 
+  the member variable root_page_id will also be updated. 
+  It is your responsibility to protect from concurrent update of this shared variable
+  
+  这样做的原因在于：
+  假如现有线程1插入A，对应的叶节点split后一直向上更新，直到产生新的根节点
+  而在这个过程中，线程2寻找A，root_page_id_没有上锁，直接通过原来的根节点向下搜寻
+  得到的结果将是找不到，但是本是线程1执行完后才执行的线程2，结果本该是能找到
+  就是因为root_page_id_没有上锁：仅仅只是树中的node上锁没有用，因为其只能
+  管辖它的子孙及其它自身，而向上更新的根节点是管不到的
+  */
+  std::mutex root_latch_;
 };
 
 }  // namespace bustub
