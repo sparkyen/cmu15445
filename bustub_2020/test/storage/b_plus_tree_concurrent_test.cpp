@@ -92,7 +92,7 @@ void DeleteHelperSplit(BPlusTree<GenericKey<8>, RID, GenericComparator<8>> *tree
   delete transaction;
 }
 
-TEST(BPlusTreeConcurrentTest, DISABLED_InsertTest1) {
+TEST(BPlusTreeConcurrentTest, InsertTest1) {
   // create KeyComparator and index schema
   Schema *key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema);
@@ -197,7 +197,7 @@ TEST(BPlusTreeConcurrentTest, DISABLED_InsertTest2) {
   remove("test.log");
 }
 
-TEST(BPlusTreeConcurrentTest, DeleteTest1) {
+TEST(BPlusTreeConcurrentTest, DISABLED_DeleteTest1) {
   // create KeyComparator and index schema
   Schema *key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema);
