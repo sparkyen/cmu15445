@@ -13,6 +13,7 @@
 #include <queue>
 #include <string>
 #include <vector>
+#include <thread>
 
 #include "concurrency/transaction.h"
 #include "storage/index/index_iterator.h"
@@ -99,7 +100,7 @@ class BPlusTree {
   Page *FindLeafPage(const KeyType &key, bool leftMost = false);
 
   Page *FindLeafPageRW(const KeyType &key, enum OpType op, Transaction *transaction=nullptr, bool left_most=false);
-  void FreePagesInTransaction(enum OpType op,Transaction *transaction);
+  void FreePagesInTransaction(enum OpType op, Transaction *transaction);
   template <typename N>
   bool IsSafe(N *node, enum OpType op);
 
@@ -112,7 +113,7 @@ class BPlusTree {
                         Transaction *transaction = nullptr);
 
   template <typename N>
-  N *Split(N *node);
+  N *Split(N *node, Transaction *transaction = nullptr);
 
   template <typename N>
   bool CoalesceOrRedistribute(N *node, Transaction *transaction = nullptr);
@@ -142,6 +143,8 @@ class BPlusTree {
   int internal_max_size_;
 
   std::mutex root_latch_;
+  //应当用static thread_local 但是一直通过不了编译
+  int root_locked_cnt = 0;
 };
 
 }  // namespace bustub
