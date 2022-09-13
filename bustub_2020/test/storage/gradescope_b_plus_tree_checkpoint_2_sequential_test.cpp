@@ -64,7 +64,6 @@ TEST(BPlusTreeTests, InsertTest1) {
     EXPECT_EQ(rids[0].GetSlotNum(), value);
   }
 
-  std::cout << "==========================" << std::endl;
   int64_t start_key = 1;
   int64_t current_key = start_key;
   for (auto pair : tree) {
@@ -132,7 +131,6 @@ TEST(BPlusTreeTests, InsertTest2) {
 
   int64_t start_key = 1;
   int64_t current_key = start_key;
-  std::cout << "==========================" << std::endl;
   for (auto pair : tree) {
     auto location = pair.second;
     EXPECT_EQ(location.GetPageId(), 0);
