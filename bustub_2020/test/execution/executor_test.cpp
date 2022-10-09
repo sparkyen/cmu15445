@@ -60,8 +60,10 @@ class ExecutorTest : public ::testing::Test {
     // Generate some test tables.
     TableGenerator gen{exec_ctx_.get()};
     gen.GenerateTestTables();
+    std::cout << "@SetUp: gen table_data DONE" << std::endl;
 
     execution_engine_ = std::make_unique<ExecutionEngine>(bpm_.get(), txn_mgr_.get(), catalog_.get());
+    std::cout << "@SetUp: gen execution_engine_ DONE" << std::endl;
   }
 
   // This function is called after every test.
@@ -140,9 +142,9 @@ class ExecutorTest : public ::testing::Test {
 };
 
 // NOLINTNEXTLINE
-TEST_F(ExecutorTest, DISABLED_SimpleSeqScanTest) {
+TEST_F(ExecutorTest, SimpleSeqScanTest) {
   // SELECT colA, colB FROM test_1 WHERE colA < 500
-
+  std::cout << "@SimleSeqScanTest: BEGIN" << std::endl;
   // Construct query plan
   TableMetadata *table_info = GetExecutorContext()->GetCatalog()->GetTable("test_1");
   Schema &schema = table_info->schema_;
@@ -155,7 +157,9 @@ TEST_F(ExecutorTest, DISABLED_SimpleSeqScanTest) {
 
   // Execute
   std::vector<Tuple> result_set;
+  std::cout << "@SimleSeqScanTest: Execute BEGIN" << std::endl;
   GetExecutionEngine()->Execute(&plan, &result_set, GetTxn(), GetExecutorContext());
+  std::cout << "@SimleSeqScanTest: Execute DONE" << std::endl;
 
   // Verify
   std::cout << "ColA, ColB" << std::endl;

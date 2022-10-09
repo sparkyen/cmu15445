@@ -48,6 +48,8 @@ class ExecutionEngine {
       }
     } catch (Exception &e) {
       // TODO(student): handle exceptions
+      std::cout << e.ExpectionTypeToString(ExceptionType::INVALID) << std::endl; 
+      exec_ctx->GetTransactionManager()->Abort(txn);
     }
 
     return true;
