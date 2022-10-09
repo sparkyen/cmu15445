@@ -283,6 +283,8 @@ TEST_F(ExecutorTest, DISABLED_SimpleRawInsertWithIndexTest) {
 
   Schema *key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema);
+  // key_schema is BIGINT
+  // key_attrs is {0} key_size is 8
   auto index_info = GetExecutorContext()->GetCatalog()->CreateIndex<GenericKey<8>, RID, GenericComparator<8>>(
       GetTxn(), "index1", "empty_table2", table_info->schema_, *key_schema, {0}, 8);
 

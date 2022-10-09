@@ -25,6 +25,8 @@ class IndexIterator {
  public:
   // you may define your own constructor based on your member variables
   IndexIterator(BufferPoolManager *bpm, LeafPage *leaf, int idx = 0);
+  //Add by sparkyen
+  IndexIterator() = default;
   ~IndexIterator();
   
   bool isEnd();

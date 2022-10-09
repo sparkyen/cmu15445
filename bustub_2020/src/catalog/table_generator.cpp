@@ -78,6 +78,7 @@ void TableGenerator::GenerateTestTables() {
    */
   std::vector<TableInsertMeta> insert_meta{
       // The empty table
+      // (*name_, num_rows_, (*name_, type_, nullable_, dist_, min_, max_))
       {"empty_table", 0, {{"colA", TypeId::INTEGER, false, Dist::Serial, 0, 0}}},
 
       // Table 1
@@ -118,11 +119,14 @@ void TableGenerator::GenerateTestTables() {
   for (auto &table_meta : insert_meta) {
     // Create Schema
     std::vector<Column> cols{};
+    //vector 的reserve增加了vector的capacity
     cols.reserve(table_meta.col_meta_.size());
     for (const auto &col_meta : table_meta.col_meta_) {
       if (col_meta.type_ != TypeId::VARCHAR) {
+        // (column_name, type)
         cols.emplace_back(col_meta.name_, col_meta.type_);
       } else {
+        // (column_name, type, varlen)
         cols.emplace_back(col_meta.name_, col_meta.type_, TEST_VARLEN_SIZE);
       }
     }
