@@ -140,7 +140,7 @@ class GradingExecutorTest : public ::testing::Test {
 };
 
 // NOLINTNEXTLINE
-TEST_F(GradingExecutorTest, DISABLED_SimpleSeqScanTest) {
+TEST_F(GradingExecutorTest, SimpleSeqScanTest) {
   // SELECT colA, colB FROM test_1 WHERE colA > 600
 
   // Construct query plan
@@ -151,6 +151,7 @@ TEST_F(GradingExecutorTest, DISABLED_SimpleSeqScanTest) {
   auto *const600 = MakeConstantValueExpression(ValueFactory::GetIntegerValue(600));
   auto *predicate = MakeComparisonExpression(colA, const600, ComparisonType::GreaterThan);
   auto *out_schema = MakeOutputSchema({{"colA", colA}, {"colB", colB}});
+  //(const Schema *output, const AbstractExpression *predicate, table_oid_t table_oid)
   SeqScanPlanNode plan{out_schema, predicate, table_info->oid_};
 
   // Execute
@@ -202,7 +203,7 @@ TEST_F(GradingExecutorTest, SimpleIndexScanTest) {
 }
 
 // NOLINTNEXTLINE
-TEST_F(GradingExecutorTest, DISABLED_SimpleRawInsertWithIndexTest) {
+TEST_F(GradingExecutorTest, SimpleRawInsertWithIndexTest) {
   // INSERT INTO empty_table2 VALUES (200, 20), (201, 21), (202, 22)
   // Create Values to insert
   std::vector<Value> val1{ValueFactory::GetIntegerValue(200), ValueFactory::GetIntegerValue(20)};
@@ -265,7 +266,7 @@ TEST_F(GradingExecutorTest, DISABLED_SimpleRawInsertWithIndexTest) {
 }
 
 // NOLINTNEXTLINE
-TEST_F(GradingExecutorTest, DISABLED_SimpleSelectInsertTest) {
+TEST_F(GradingExecutorTest, SimpleSelectInsertTest) {
   // INSERT INTO empty_table2 SELECT colA, colB FROM test_1 WHERE colA > 500
   std::unique_ptr<AbstractPlanNode> scan_plan1;
   const Schema *out_schema1;
@@ -282,15 +283,20 @@ TEST_F(GradingExecutorTest, DISABLED_SimpleSelectInsertTest) {
   std::unique_ptr<AbstractPlanNode> insert_plan;
   {
     auto table_info = GetExecutorContext()->GetCatalog()->GetTable("empty_table2");
+    //(const AbstractPlanNode *child, table_oid_t table_oid)
     insert_plan = std::make_unique<InsertPlanNode>(scan_plan1.get(), table_info->oid_);
   }
 
+  std::cout << "@SimpleSelectInsertTest: Execute BEGIN" << std::endl;
   GetExecutionEngine()->Execute(insert_plan.get(), nullptr, GetTxn(), GetExecutorContext());
+  std::cout << "@SimpleSelectInsertTest: Execute DONE 1" << std::endl;
   Schema *key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema);
   auto index_info = GetExecutorContext()->GetCatalog()->CreateIndex<GenericKey<8>, RID, GenericComparator<8>>(
       GetTxn(), "index1", "empty_table2", GetExecutorContext()->GetCatalog()->GetTable("empty_table2")->schema_,
       *key_schema, {0}, 8);
+
+  std::cout << "@SimpleSelectInsertTest: Execute DONE 2" << std::endl;
 
   // Now iterate through both tables, and make sure they have the same data
   std::unique_ptr<AbstractPlanNode> scan_plan2;
@@ -338,7 +344,7 @@ TEST_F(GradingExecutorTest, DISABLED_SimpleSelectInsertTest) {
 }
 
 // NOLINTNEXTLINE
-TEST_F(GradingExecutorTest, DISABLED_SimpleUpdateTest) {
+TEST_F(GradingExecutorTest, SimpleUpdateTest) {
   // INSERT INTO empty_table2 SELECT colA, colA FROM test_1 WHERE colA < 50
   // UPDATE empty_table2 SET colA = colA+10 WHERE colA < 50
   std::unique_ptr<AbstractPlanNode> scan_plan1;
@@ -359,6 +365,8 @@ TEST_F(GradingExecutorTest, DISABLED_SimpleUpdateTest) {
   }
 
   GetExecutionEngine()->Execute(insert_plan.get(), nullptr, GetTxn(), GetExecutorContext());
+
+  std::cout << "@SimpleUpdateTest: Insert Excution DONE" << std::endl;
 
   // Construct query plan
   auto table_info = GetExecutorContext()->GetCatalog()->GetTable("empty_table2");
@@ -400,7 +408,9 @@ TEST_F(GradingExecutorTest, DISABLED_SimpleUpdateTest) {
   { update_plan = std::make_unique<UpdatePlanNode>(scan_empty_plan.get(), table_info->oid_, update_attrs); }
 
   std::vector<Tuple> result_set;
+  std::cout << "@SimpleUpdateTest: Update Excution BEGIN" << std::endl;
   GetExecutionEngine()->Execute(update_plan.get(), &result_set, txn, exec_ctx.get());
+  std::cout << "@SimpleUpdateTest: Update Excution DONE" << std::endl;
 
   GetTxnManager()->Commit(txn);
   delete txn;
@@ -421,7 +431,7 @@ TEST_F(GradingExecutorTest, DISABLED_SimpleUpdateTest) {
 }
 
 // NOLINTNEXTLINE
-TEST_F(GradingExecutorTest, DISABLED_SimpleDeleteTest) {
+TEST_F(GradingExecutorTest, SimpleDeleteTest) {
   // SELECT colA FROM test_1 WHERE colA < 50
   // DELETE FROM test_1 WHERE colA < 50
   // SELECT colA FROM test_1 WHERE colA < 50

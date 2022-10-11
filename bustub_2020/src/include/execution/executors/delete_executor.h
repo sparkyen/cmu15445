@@ -49,6 +49,10 @@ class DeleteExecutor : public AbstractExecutor {
  private:
   /** The delete plan node to be executed. */
   const DeletePlanNode *plan_;
+
+  const TableMetadata *table_info_;
+  const std::vector<IndexInfo *> index_list_;
+
   /** The child executor to obtain rid from. */
   std::unique_ptr<AbstractExecutor> child_executor_;
 };

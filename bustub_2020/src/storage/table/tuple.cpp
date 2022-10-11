@@ -96,12 +96,14 @@ Value Tuple::GetValue(const Schema *schema, const uint32_t column_idx) const {
   return Value::DeserializeFrom(data_ptr, column_type);
 }
 
+// Generates a key tuple given schemas and attributes
 Tuple Tuple::KeyFromTuple(const Schema &schema, const Schema &key_schema, const std::vector<uint32_t> &key_attrs) {
   std::vector<Value> values;
   values.reserve(key_attrs.size());
   for (auto idx : key_attrs) {
     values.emplace_back(this->GetValue(&schema, idx));
   }
+  //根据tuple的schema拿出其中key_attrs下标对应的列的数据
   return Tuple(values, &key_schema);
 }
 

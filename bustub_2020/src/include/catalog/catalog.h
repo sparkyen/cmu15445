@@ -90,7 +90,10 @@ class Catalog {
   /** @return table metadata by name */
   TableMetadata *GetTable(const std::string &table_name) { 
     if(names_.count(table_name)==0){
-      throw std::out_of_range(table_name);
+      LOG_INFO("Can't find table named %s", table_name.c_str());
+      return nullptr;
+      // throw std::out_of_range("Can't find table named "+table_name);
+      // throw Exception(table_name);
     }
     auto table_id = names_[table_name];
 
@@ -101,7 +104,10 @@ class Catalog {
   TableMetadata *GetTable(table_oid_t table_oid) { 
     auto now_table = tables_.find(table_oid);
     if(now_table==tables_.end()){
-      throw Exception("Can't find table id "+table_oid);
+      LOG_INFO("Can't find table which id is %d", table_oid);
+      return nullptr;
+      // throw std::out_of_range("Can't find table which id is "+table_oid);
+      // throw Exception("Can't find table id "+table_oid);
     }
     return now_table->second.get();
   }
@@ -139,7 +145,10 @@ class Catalog {
 
   IndexInfo *GetIndex(const std::string &index_name, const std::string &table_name) { 
     if(index_names_.count(table_name)==0){
-      throw Exception("Can't find Index named "+index_name+" in table named "+table_name);
+      LOG_INFO("Can't find Index named %s in table named %s", index_name.c_str(), table_name.c_str());
+      return nullptr;
+      // throw std::out_of_range("Can't find Index named "+index_name+" in table named "+table_name);
+      // throw Exception("Can't find Index named "+index_name+" in table named "+table_name);
     }
     index_oid_t index_id = index_names_[table_name][index_name];
     return GetIndex(index_id);
@@ -147,16 +156,23 @@ class Catalog {
 
   IndexInfo *GetIndex(index_oid_t index_oid) { 
     if(indexes_.count(index_oid)==0){
-      throw Exception("Can't find index with id "+index_oid);
+      LOG_INFO("Can't find index with id %d", index_oid);
+      return nullptr;
+      // throw std::out_of_range("Can't find index with id "+index_oid);
+      // throw Exception("Can't find index with id "+index_oid);
     }
     return indexes_[index_oid].get();
   }
 
   std::vector<IndexInfo *> GetTableIndexes(const std::string &table_name) { 
-    if(index_names_.count(table_name)==0){
-      throw Exception("Can't find Index in table named "+table_name);
-    }
     std::vector<IndexInfo *> result;
+    if(index_names_.count(table_name)==0){
+      LOG_INFO("Can't find Index in table named %s", table_name.c_str());
+      return result;
+      // throw std::out_of_range("Can't find Index in table named "+table_name);
+      // throw Exception("Can't find Index in table named "+table_name);
+    }
+    
     auto data = index_names_[table_name];
     for(auto it = data.begin(); it != data.end(); it++){
       result.push_back(indexes_[it->second].get());
