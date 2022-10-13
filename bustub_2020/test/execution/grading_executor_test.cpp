@@ -115,6 +115,7 @@ class GradingExecutorTest : public ::testing::Test {
     cols.reserve(exprs.size());
     for (const auto &input : exprs) {
       if (input.second->GetReturnType() != TypeId::VARCHAR) {
+        //(colum_name, type, AbstractExpression)
         cols.emplace_back(input.first, input.second->GetReturnType(), input.second);
       } else {
         cols.emplace_back(input.first, input.second->GetReturnType(), MAX_VARCHAR_SIZE, input.second);
@@ -485,7 +486,7 @@ TEST_F(GradingExecutorTest, SimpleDeleteTest) {
 }
 
 // NOLINTNEXTLINE
-TEST_F(GradingExecutorTest, DISABLED_SimpleNestedLoopJoinTest) {
+TEST_F(GradingExecutorTest, SimpleNestedLoopJoinTest) {
   // SELECT test_1.colA, test_1.colB, test_2.col1, test_2.col3 FROM test_1 JOIN test_2 ON test_1.colA = test_2.col1 AND
   // test_1.colA < 50
   std::unique_ptr<AbstractPlanNode> scan_plan1;
@@ -493,10 +494,12 @@ TEST_F(GradingExecutorTest, DISABLED_SimpleNestedLoopJoinTest) {
   {
     auto table_info = GetExecutorContext()->GetCatalog()->GetTable("test_1");
     auto &schema = table_info->schema_;
+    //返回的是Expression
     auto colA = MakeColumnValueExpression(schema, 0, "colA");
     auto colB = MakeColumnValueExpression(schema, 0, "colB");
     auto const50 = MakeConstantValueExpression(ValueFactory::GetIntegerValue(50));
     auto predicate = MakeComparisonExpression(colA, const50, ComparisonType::LessThan);
+    //这里才会创建colum并记入schema
     out_schema1 = MakeOutputSchema({{"colA", colA}, {"colB", colB}});
     scan_plan1 = std::make_unique<SeqScanPlanNode>(out_schema1, predicate, table_info->oid_);
   }

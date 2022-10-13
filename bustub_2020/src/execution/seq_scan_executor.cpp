@@ -25,9 +25,15 @@ void SeqScanExecutor::Init() {
 }
 
 bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) { 
+    std::cout << "@SeqScanExecutor: BEGIN" << std::endl;
     while(table_iter!=table_mata_data_->table_->End()){
         // std::cout << table_iter->ToString(&table_mata_data_->schema_) << std::endl;
-        *tuple = *(table_iter++);
+
+        // Tuple now_tuple = *table_iter;
+        // table_iter++;
+        // std::cout << "@SeqScanExecutor: table_iter is " << table_iter->ToString(&table_mata_data_->schema_) << std::endl;
+        *tuple = *table_iter;
+        table_iter++;
         
         // std::cout << "@SeqScanExecutor: tuple is " << (*tuple).ToString(&table_mata_data_->schema_) << std::endl;
         /*
@@ -47,6 +53,7 @@ bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
                     std::cout << "@SeqScanExecutor: val[i] is " << val[i].ToString() << std::endl;
                 }
                 *tuple = Tuple(val, output_schema);
+                std::cout << tuple->ToString(output_schema) << std::endl;
                 return true;
             }
         
