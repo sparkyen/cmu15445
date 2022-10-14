@@ -24,6 +24,7 @@
 #include "execution/plans/nested_index_join_plan.h"
 #include "storage/table/tmp_tuple.h"
 #include "storage/table/tuple.h"
+#include "execution/expressions/column_value_expression.h"
 
 namespace bustub {
 
@@ -50,5 +51,9 @@ class NestIndexJoinExecutor : public AbstractExecutor {
  private:
   /** The nested index join plan node. */
   const NestedIndexJoinPlanNode *plan_;
+  const std::unique_ptr<AbstractExecutor> outer_executor;
+  const TableMetadata *inner_table_info;
+  const IndexInfo* inner_index_info;
+  Index *inner_index_;
 };
 }  // namespace bustub

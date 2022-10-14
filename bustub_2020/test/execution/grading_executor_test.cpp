@@ -540,6 +540,7 @@ TEST_F(GradingExecutorTest, SimpleNestedLoopJoinTest) {
   }
 }
 
+
 // NOLINTNEXTLINE
 TEST_F(GradingExecutorTest, DISABLED_SimpleAggregationTest) {
   // SELECT COUNT(colA), SUM(colA), min(colA), max(colA) from test_1;
@@ -644,7 +645,7 @@ TEST_F(GradingExecutorTest, DISABLED_SimpleGroupByAggregation) {
 }
 
 // NOLINTNEXTLINE
-TEST_F(GradingExecutorTest, DISABLED_SimpleNestedIndexJoinTest) {
+TEST_F(GradingExecutorTest, SimpleNestedIndexJoinTest) {
   // SELECT test_1.colA, test_1.colB, test_3.col1, test_3.col3 FROM test_1 JOIN test_3 ON test_1.colA = test_3.col1
   std::unique_ptr<AbstractPlanNode> scan_plan1;
   const Schema *outer_schema1;
@@ -662,6 +663,7 @@ TEST_F(GradingExecutorTest, DISABLED_SimpleNestedIndexJoinTest) {
     auto colA = MakeColumnValueExpression(schema, 0, "colA");
     auto colB = MakeColumnValueExpression(schema, 0, "colB");
     outer_schema1 = MakeOutputSchema({{"colA", colA}, {"colB", colB}});
+    //使用outer_out_schema1的原因在于假如只保存output_schema的信息，那么join的信息可能就找不到
     scan_plan1 = std::make_unique<SeqScanPlanNode>(outer_out_schema1, nullptr, table_info->oid_);
   }
   const Schema *out_schema2;
@@ -689,6 +691,7 @@ TEST_F(GradingExecutorTest, DISABLED_SimpleNestedIndexJoinTest) {
     auto inner_table_oid = inner_table_info->oid_;
     GenericComparator<8> comparator(key_schema);
     // Create index for inner table
+    //在{0}列上创建index
     auto index_info = GetExecutorContext()->GetCatalog()->CreateIndex<GenericKey<8>, RID, GenericComparator<8>>(
         GetTxn(), "index1", "test_3", inner_table_info->schema_, *key_schema, {0}, 1);
 
@@ -764,6 +767,8 @@ TEST_F(GradingExecutorTest, DISABLED_SchemaChangeSeqScan) {
               result_set2[i].GetValue(out_schema2, out_schema2->GetColIdx("outB")).GetAs<int32_t>());
   }
 }
+
+
 
 TEST_F(GradingExecutorTest, DISABLED_IntegratedTest) {
   // scan -> join -> aggregate
