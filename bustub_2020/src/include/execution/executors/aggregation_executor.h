@@ -26,6 +26,8 @@
 #include "storage/table/tuple.h"
 #include "type/value_factory.h"
 
+#include "execution/expressions/aggregate_value_expression.h"
+
 namespace bustub {
 /**
  * A simplified hash table that has all the necessary functionality for aggregations.
@@ -69,6 +71,7 @@ class SimpleAggregationHashTable {
 
   /** Combines the input into the aggregation result. */
   void CombineAggregateValues(AggregateValue *result, const AggregateValue &input) {
+    //每个result对应着多个聚合结果，比如count(colA), colB, sum(colC)
     for (uint32_t i = 0; i < agg_exprs_.size(); i++) {
       switch (agg_types_[i]) {
         case AggregationType::CountAggregate:
@@ -96,6 +99,15 @@ class SimpleAggregationHashTable {
    * @param agg_key the key to be inserted
    * @param agg_val the value to be inserted
    */
+  //AggregateKey是vector是因为group_by可能有多个词
+  /*
+    Subject    Semester   Count
+    ------------------------------
+    ITB001     1          3
+    ITB001     2          2
+    MKB114     1          2
+  */
+  // ref: https://segmentfault.com/a/1190000006821331
   void InsertCombine(const AggregateKey &agg_key, const AggregateValue &agg_val) {
     if (ht.count(agg_key) == 0) {
       ht.insert({agg_key, GenerateInitialAggregateValue()});
@@ -196,8 +208,10 @@ class AggregationExecutor : public AbstractExecutor {
   /** The child executor whose tuples we are aggregating. */
   std::unique_ptr<AbstractExecutor> child_;
   /** Simple aggregation hash table. */
-  // Uncomment me! SimpleAggregationHashTable aht_;
+  // Uncomment me! 
+  SimpleAggregationHashTable aht_;
   /** Simple aggregation hash table iterator. */
-  // Uncomment me! SimpleAggregationHashTable::Iterator aht_iterator_;
+  // Uncomment me! 
+  SimpleAggregationHashTable::Iterator aht_iterator_;
 };
 }  // namespace bustub
