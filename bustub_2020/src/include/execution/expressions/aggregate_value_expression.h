@@ -43,6 +43,7 @@ class AggregateValueExpression : public AbstractExpression {
   }
 
   Value EvaluateAggregate(const std::vector<Value> &group_bys, const std::vector<Value> &aggregates) const override {
+    // 选择是用group_bys还是aggregates中的数据
     return is_group_by_term_ ? group_bys[term_idx_] : aggregates[term_idx_];
   }
 
